@@ -5,6 +5,7 @@ import RootLayout from "./layout/Rootlayout";
 import AuthLayout from "./layout/Authlayout";
 import LoginScreen from "./pages/auth/login-form";
 import SignupPage from "./pages/auth/sign-up";
+import verifyOTPPage from "./pages/auth/verify-otp";
 
 export const router = createBrowserRouter([
   {
@@ -23,6 +24,10 @@ export const router = createBrowserRouter([
     path: "/signup",
     Component: AuthLayout,
     ErrorBoundary: ErrorScreen,
-    children: [{ index: true, Component: SignupPage }],
+    children: [
+      { index: true, Component: SignupPage },
+      { path: "verify-email", Component: verifyOTPPage },
+
+    ],
   }
 ]);
