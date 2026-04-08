@@ -11,7 +11,7 @@ export default function SignupPage() {
             <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
               <Atom className="size-4" />
             </div>
-             Electronic-Shop
+             Furniture Shop
           </a>
         </div>
         <div className="flex flex-1 items-center justify-center">
@@ -22,7 +22,7 @@ export default function SignupPage() {
       </div>
       <div className="bg-muted relative hidden lg:block">
         <img
-          src="/public/images/Unique.png"
+          src="/images/Unique.jpg"
           alt="Image"
           className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
         />

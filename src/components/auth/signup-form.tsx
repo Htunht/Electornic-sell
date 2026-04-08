@@ -16,6 +16,7 @@ import {
   // FieldError // Ensure this is imported if it's a custom component
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { signIn } from "@/lib/auth-client";
 // import { InputGroup, InputGroupInput, InputGroupAddon, InputGroupButton } from "@/components/ui/input-group";
 
 const formSchema = z
@@ -86,6 +87,27 @@ export function SignupForm({
           : "An unexpected error occurred. Please try again later.",
       );
     } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      await signIn.social({
+        provider: "google",
+        callbackURL: "http://localhost:5174", 
+      })
+    } catch (error: unknown) {
+      console.log(error);
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to sign in with Google",
+      );
       setIsLoading(false);
     }
   }
@@ -222,11 +244,10 @@ export function SignupForm({
 
         <FieldSeparator>Or continue with</FieldSeparator>
 
-        <Button variant="outline" type="button" className="w-full">
-          {/* GitHub SVG Icon */}
-          Sign up with GitHub
+        <Button variant="outline" type="button" className="w-full" onClick={handleGoogleSignIn} disabled={isLoading} >
+          Sign up with Google
         </Button>
-
+       {error && <p className="text-red-500">{error}</p>}
         <FieldDescription className="text-center">
           Already have an account?{" "}
           <a href="/login" className="underline underline-offset-4">
