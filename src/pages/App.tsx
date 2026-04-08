@@ -1,20 +1,30 @@
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router";
-import { useEffect } from "react";
+import { signUp, signIn } from "../lib/auth-client";
 
 function App() {
-  const navigate = useNavigate();
+  const handleSignUp = async () => {
+    const name = "John Doe";
+    const email = "johndoe@example.com";
+    const password = "password123";
 
-  useEffect(() => {
-    if (!localStorage.getItem("token")) {
-      navigate("/");
-    }
-  }, [navigate]);
+    const { data, error } = await signUp.email({ name, email, password });
+    console.log("data", data);
+    console.error("Error signing up:", error);
+  };
 
+  const handleSignIn = async () => {
+    const email = "johndoe@example.com";
+    const password = "password123";
+
+    const { data, error } = await signIn.email({ email, password });
+    console.log("data", data);
+    console.error("Error signing in:", error);
+  }
   return (
     <div className="p-4">
       <h1 className="text-2xl font-bold mb-4">Home Screen</h1>
-      <Button onClick={() => navigate("/login")}>Go to Login</Button>
+      <Button onClick={handleSignUp}>Sign Up</Button>
+      <Button onClick={handleSignIn}>Sign In</Button>
     </div>
   );
 }
