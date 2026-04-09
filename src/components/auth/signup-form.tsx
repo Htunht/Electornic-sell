@@ -1,31 +1,37 @@
-import { useState } from "react";
-import { useNavigate } from "react-router";
-import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Controller, useForm } from "react-hook-form";
 import * as z from "zod";
-import { Eye, EyeOff } from "lucide-react"; // Assuming Lucide for icons
+import { Link, useNavigate } from "react-router";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Field,
   FieldDescription,
+  FieldError,
   FieldGroup,
   FieldLabel,
   FieldSeparator,
-  // FieldError // Ensure this is imported if it's a custom component
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { signIn } from "@/lib/auth-client";
-// import { InputGroup, InputGroupInput, InputGroupAddon, InputGroupButton } from "@/components/ui/input-group";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
+import { useState } from "react";
+import { signIn, signUp, emailOtp} from "@/lib/auth-client";
+import { Eye, EyeOffIcon } from "lucide-react";
 
 const formSchema = z
   .object({
     name: z.string().min(2, "Name must be at least 2 characters long."),
-    email: z.string().email("Please enter a valid email address."),
+    email: z.email("Please enter a valid email address."),
     password: z
       .string()
-      .min(8, "Password must be 8 characters long.")
+      .min(8, "Password must be 8 digit long.")
       .max(50, "Password must be 50 characters or less.")
       .regex(/[0-9]/, "Password must contain at least one digit.")
       .regex(/[a-z]/, "Password must contain at least one lowercase character.")
@@ -40,19 +46,17 @@ const formSchema = z
     path: ["confirmPassword"],
   });
 
-type FormValues = z.infer<typeof formSchema>;
-
 export function SignupForm({
   className,
   ...props
-}: React.ComponentProps<"form">) {
+}: React.ComponentProps<"div">) {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
 
-  const form = useForm<FormValues>({
+  const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
@@ -62,29 +66,37 @@ export function SignupForm({
     },
   });
 
-  async function onSubmit(data: FormValues) {
-    setIsLoading(true);
+  async function onSubmit(data: z.infer<typeof formSchema>) {
     setError(null);
+    setIsLoading(true);
 
+    // console.log(data);
     try {
-      // 1. Log the data to the browser console for testing
-      console.log("Form Submitted Successfully:", {
-        name: data.name,
+      const { error } = await signUp.email({
         email: data.email,
         password: data.password,
-        confirmPassword: data.confirmPassword,
+        name: data.name,
       });
 
-      // 2. Simulate a short network delay so you can see the loading state
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (error) {
+        setError(error.message || "Failed to create account");
+        return;
+      }
 
-      // 3. Success! Redirect to the verify-email page
-      navigate("/signup/verify-email");
-    } catch (err: unknown) {
+      const otpResult = await emailOtp.sendVerificationOtp({
+        email: data.email,
+        type: "email-verification",
+      });
+
+      if (otpResult.error) {
+        setError(otpResult.error.message || "Failed to send verification OTP");
+        return;
+      }
+
+      navigate(`/signup/verify-otp?email=${data.email}`);
+    } catch (error: unknown) {
       setError(
-        err instanceof Error
-          ? err.message
-          : "An unexpected error occurred. Please try again later.",
+        error instanceof Error ? error.message : "Failed to create account",
       );
     } finally {
       setIsLoading(false);
@@ -98,8 +110,8 @@ export function SignupForm({
     try {
       await signIn.social({
         provider: "google",
-        callbackURL: "http://localhost:5174", 
-      })
+        callbackURL: "http://localhost:5174",
+      });
     } catch (error: unknown) {
       console.log(error);
 
@@ -113,148 +125,182 @@ export function SignupForm({
   }
 
   return (
-    <form
-      id="signup-form"
-      onSubmit={form.handleSubmit(onSubmit)}
-      className={cn("flex flex-col gap-6", className)}
-      {...props}
-    >
-      <FieldGroup>
-        <div className="flex flex-col items-center gap-1 text-center">
-          <h1 className="text-2xl font-bold">Create your account</h1>
-          <p className="text-muted-foreground text-sm">
-            Fill in the form below to create your account
-          </p>
-        </div>
-
-        {error && (
-          <p className="text-destructive text-sm text-center">{error}</p>
-        )}
-
-        {/* Name Field */}
-        <Controller
-          name="name"
-          control={form.control}
-          render={({ field, fieldState }) => (
-            <Field>
-              <FieldLabel>Name</FieldLabel>
-              <Input
-                {...field}
-                placeholder="Jane Doe"
-                data-invalid={fieldState.invalid}
+    <div className={cn("flex flex-col gap-6", className)} {...props}>
+      <Card>
+        <CardHeader className="text-center">
+          <CardTitle className="text-xl">Create your account</CardTitle>
+          <CardDescription>
+            Enter your information below to create your account
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form
+            id="login-form"
+            onSubmit={form.handleSubmit(onSubmit)}
+          >
+            <FieldGroup>
+              <Controller
+                name="name"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="form-rhf-demo-title">Name</FieldLabel>
+                    <Input
+                      {...field}
+                      id="form-rhf-demo-title"
+                      aria-invalid={fieldState.invalid}
+                      placeholder="Joe Doe"
+                      type="text"
+                      autoComplete="off"
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
               />
-              {fieldState.error && (
-                <span className="text-destructive text-xs">
-                  {fieldState.error.message}
-                </span>
-              )}
-            </Field>
-          )}
-        />
-
-        {/* Email Field */}
-        <Controller
-          name="email"
-          control={form.control}
-          render={({ field, fieldState }) => (
-            <Field>
-              <FieldLabel>Email Address</FieldLabel>
-              <Input
-                {...field}
-                type="email"
-                placeholder="you@example.com"
-                data-invalid={fieldState.invalid}
+              <Controller
+                name="email"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="form-rhf-demo-title">
+                      Email Address
+                    </FieldLabel>
+                    <Input
+                      {...field}
+                      id="form-rhf-demo-title"
+                      aria-invalid={fieldState.invalid}
+                      placeholder="you@example.com"
+                      type="email"
+                      autoComplete="off"
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
               />
-              {fieldState.error && (
-                <span className="text-destructive text-xs">
-                  {fieldState.error.message}
-                </span>
-              )}
-            </Field>
-          )}
-        />
+              <Controller
+                name="password"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="form-rhf-demo-title">
+                      Password
+                    </FieldLabel>
 
-        {/* Password Field */}
-        <Controller
-          name="password"
-          control={form.control}
-          render={({ field, fieldState }) => (
-            <Field>
-              <FieldLabel>Password</FieldLabel>
-              <div className="relative">
-                <Input
-                  {...field}
-                  type={showPassword ? "text" : "password"}
-                  className="pr-10"
-                />
-                <button
+                    <InputGroup>
+                      <InputGroupInput
+                        {...field}
+                        aria-invalid={fieldState.invalid}
+                        type={showPassword ? "text" : "password"}
+                        autoComplete="new-password"
+                        required
+                      />
+                      <InputGroupAddon align="inline-end">
+                        <InputGroupButton
+                          aria-label={
+                            showPassword ? "Hide password" : "Show password"
+                          }
+                          title={
+                            showPassword ? "Hide password" : "Show password"
+                          }
+                          size="icon-xs"
+                          onClick={() =>
+                            setShowPassword((prevState) => !prevState)
+                          }
+                        >
+                          {showPassword ? <EyeOffIcon /> : <Eye />}
+                        </InputGroupButton>
+                      </InputGroupAddon>
+                    </InputGroup>
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+              <Controller
+                name="confirmPassword"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="form-rhf-demo-title">
+                      Confirm Password
+                    </FieldLabel>
+
+                    <InputGroup>
+                      <InputGroupInput
+                        {...field}
+                        aria-invalid={fieldState.invalid}
+                        type={showPasswordConfirm ? "text" : "password"}
+                        autoComplete="off"
+                        required
+                      />
+                      <InputGroupAddon align="inline-end">
+                        <InputGroupButton
+                          aria-label={
+                            showPassword ? "Hide password" : "Show password"
+                          }
+                          title={
+                            showPassword ? "Hide password" : "Show password"
+                          }
+                          size="icon-xs"
+                          onClick={() =>
+                            setShowPasswordConfirm((prevState) => !prevState)
+                          }
+                        >
+                          {showPasswordConfirm ? <EyeOffIcon /> : <Eye />}
+                        </InputGroupButton>
+                      </InputGroupAddon>
+                    </InputGroup>
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+
+              <Field>
+                <Button type="submit" form="login-form" disabled={isLoading}>
+                  Create Account
+                </Button>
+              </Field>
+              <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card">
+                Or continue with
+              </FieldSeparator>
+              <Field>
+                <Button
+                  variant="outline"
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2"
+                  onClick={handleGoogleSignIn}
+                  disabled={isLoading}
                 >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-              {fieldState.error && (
-                <span className="text-destructive text-xs">
-                  {fieldState.error.message}
-                </span>
-              )}
-            </Field>
-          )}
-        />
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <path
+                      d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                  Sign up with Google
+                  <span className="sr-only">Sign up with Google</span>
+                </Button>
+              </Field>
+              {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
-        {/* Confirm Password Field */}
-        <Controller
-          name="confirmPassword"
-          control={form.control}
-          render={({ field, fieldState }) => (
-            <Field>
-              <FieldLabel>Confirm Password</FieldLabel>
-              <div className="relative">
-                <Input
-                  {...field}
-                  type={showConfirmPassword ? "text" : "password"}
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2"
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff size={16} />
-                  ) : (
-                    <Eye size={16} />
-                  )}
-                </button>
-              </div>
-              {fieldState.error && (
-                <span className="text-destructive text-xs">
-                  {fieldState.error.message}
-                </span>
-              )}
-            </Field>
-          )}
-        />
-
-        <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? "Creating Account..." : "Create Account"}
-        </Button>
-
-        <FieldSeparator>Or continue with</FieldSeparator>
-
-        <Button variant="outline" type="button" className="w-full" onClick={handleGoogleSignIn} disabled={isLoading} >
-          Sign up with Google
-        </Button>
-       {error && <p className="text-red-500">{error}</p>}
-        <FieldDescription className="text-center">
-          Already have an account?{" "}
-          <a href="/login" className="underline underline-offset-4">
-            Sign in
-          </a>
-        </FieldDescription>
-      </FieldGroup>
-    </form>
+              <FieldDescription className="text-center">
+                Already have an account? <Link to="/login">Sign in</Link>
+              </FieldDescription>
+            </FieldGroup>
+          </form>
+        </CardContent>
+      </Card>
+      <FieldDescription className="px-6 text-center">
+        By clicking continue, you agree to our{" "}
+        <Link to="#">Terms of Service</Link> and{" "}
+        <Link to="#">Privacy Policy</Link>.
+      </FieldDescription>
+    </div>
   );
 }

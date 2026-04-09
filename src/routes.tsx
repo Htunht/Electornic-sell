@@ -27,6 +27,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, Component: SignupPage },
       { path: "verify-email", Component: verifyOTPPage },
+      { path: "verify-otp", Component: verifyOTPPage },
     ],
   }
 ]);
