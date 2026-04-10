@@ -11,7 +11,7 @@ interface sendEmailParams {
 export async function sendEmail({to, subject, text}: sendEmailParams){
     try {
         const response = await resend.emails.send({
-            from: "onboarding@resend.dev",
+            from: "no-reply@resend.dev",
             to,
             subject,
             text,
