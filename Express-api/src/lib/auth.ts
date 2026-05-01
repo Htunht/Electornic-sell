@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { emailOTP } from "better-auth/plugins"
+import { emailOTP, admin } from "better-auth/plugins"
 import { sendEmail } from "./email";
 import prisma from "./prisma";
 import { getResetPasswordEmailHtml } from "./email-templates";
@@ -22,7 +22,7 @@ export const auth = betterAuth({
         if (type === "forget-password") {
           const htmlContent = getResetPasswordEmailHtml(email, resetLink);
           // Password Reset အတွက် Link (URL) ကို ပို့ပေးမည့်အပိုင်း
-          void sendEmail({
+          await sendEmail({
             to: email,
             subject: "Reset Your Password",
             text: htmlContent, // HTML email သုံးလျှင် ဒါကို သုံးပါ
@@ -37,6 +37,10 @@ export const auth = betterAuth({
           });
         }
       },
+    }),
+    admin({
+      adminRole: "SUPER_ADMIN",
+      defaultRole: "STUDENT"
     }),
   ],
   socialProviders: {

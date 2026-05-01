@@ -1,0 +1,191 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// --- ENUMS ---
+
+enum Role {
+  SUPER_ADMIN
+  MAJOR_HEAD
+  MINOR_HEAD
+  TEACHER
+  STUDENT
+}
+
+enum Major {
+  CIVIL
+  ARCHI
+  EP
+  EC
+  MC
+  ME
+  IT
+}
+
+enum AcademicYear {
+  YEAR_1
+  YEAR_2
+  YEAR_3
+  YEAR_4
+  YEAR_5
+  YEAR_6
+}
+
+enum ResultStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LEAVE
+}
+
+enum EventType {
+  ASSIGNMENT
+  TUTORIAL
+  EXAM
+  HOLIDAY
+}
+
+// --- MODELS ---
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String?   // Better-auth handles this
+  role          Role      @default(STUDENT)
+  
+  // Profile Relations
+  studentProfile Student?
+  teacherProfile Teacher?
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Student {
+  id          String       @id @default(cuid())
+  userId      String       @unique
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  rollNo      String       @unique
+  name        String
+  major       Major
+  year        AcademicYear
+  phone       String?
+  birthDate   DateTime?
+  
+  results     Result[]
+  attendance  Attendance[]
+
+  // Performance optimization for 2000+ students
+  @@index([major, year])
+  @@index([rollNo])
+}
+
+model Teacher {
+  id          String       @id @default(cuid())
+  userId      String       @unique
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name        String
+  phone       String?
+  
+  // For Heads
+  majorHead   Major?       // If Major Head, which major
+  minorDept   String?      // If Minor Head (e.g., "Myanmar", "Maths")
+
+  // Teaching Assignments
+  assignments SubjectAssignment[]
+}
+
+model Subject {
+  id          String       @id @default(cuid())
+  code        String       @unique // e.g., "IT-3101"
+  name        String       // e.g., "Data Structures"
+  isMinor     Boolean      @default(false)
+  creditHours Int          @default(3)
+
+  results     Result[]
+  assignments SubjectAssignment[]
+}
+
+// This table links Teachers to specific Classes (Major + Year + Subject)
+// This is the core for your PERMISSION logic
+model SubjectAssignment {
+  id          String       @id @default(cuid())
+  teacherId   String
+  teacher     Teacher      @relation(fields: [teacherId], references: [id])
+  
+  subjectId   String
+  subject     Subject      @relation(fields: [subjectId], references: [id])
+  
+  major       Major
+  year        AcademicYear
+  
+  canEdit     Boolean      @default(true) // Set by Head
+
+  @@unique([teacherId, subjectId, major, year])
+}
+
+model Result {
+  id            String       @id @default(cuid())
+  studentId     String
+  student       Student      @relation(fields: [studentId], references: [id])
+  
+  subjectId     String
+  subject       Subject      @relation(fields: [subjectId], references: [id])
+  
+  marks         Float
+  grade         String       // A, B, C, D, F
+  gradePoint    Float        // For GPA Calculation
+  
+  semester      Int          // 1 or 2
+  academicYear  String       // e.g., "2025-2026"
+  
+  status        ResultStatus @default(PENDING)
+  uploadedBy    String       // Teacher ID
+  approvedBy    String?      // Major Head ID
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([studentId, academicYear])
+}
+
+model Attendance {
+  id          String           @id @default(cuid())
+  studentId   String
+  student     Student          @relation(fields: [studentId], references: [id])
+  
+  date        DateTime         @default(now())
+  status      AttendanceStatus
+  subjectId   String?
+  
+  @@index([studentId, date])
+}
+
+model CalendarEvent {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  type        EventType
+  startDate   DateTime
+  endDate     DateTime
+  
+  // Targeted Audience
+  major       Major?    // If null, it's school-wide
+  year        AcademicYear?
+  
+  createdBy   String    // Admin ID
+}
