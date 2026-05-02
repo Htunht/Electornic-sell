@@ -1,5 +1,6 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// This is your Prisma schema file for the Student Result Management System
+// Optimized for PostgreSQL with specific role-based permissions and performance indexing.
+// Includes required models for Better-Auth.
 
 generator client {
   provider = "prisma-client-js"
@@ -12,9 +13,6 @@ datasource db {
 // --- ENUMS ---
 
 enum Role {
-  SUPER_ADMIN
-  MAJOR_HEAD
-  MINOR_HEAD
   TEACHER
   STUDENT
 }
@@ -38,167 +36,54 @@ enum AcademicYear {
   YEAR_6
 }
 
-enum ResultStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
 enum AttendanceStatus {
   PRESENT
   ABSENT
-  LEAVE
-}
-
-enum EventType {
-  ASSIGNMENT
-  TUTORIAL
-  EXAM
-  HOLIDAY
+  LATE
+  EXCUSED
 }
 
 // --- MODELS ---
 
 model User {
-  id             String   @id @default(cuid())
-  email          String   @unique
-  password       String? // Better-auth handles this
-  role           Role     @default(STUDENT)
+  id             String    @id @default(cuid())
+  email          String    @unique
+  password       String?   // Nullable for Better-Auth (social logins)
+  role           Role      @default(STUDENT)
+  
   // Profile Relations
-  studentProfile Student?
   teacherProfile Teacher?
+  studentProfile Student?
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  name          String
-  emailVerified Boolean   @default(false)
-  image         String?
-  banned        Boolean?  @default(false)
+  // Better-Auth Required Fields
+  name           String
+  emailVerified  Boolean   @default(false)
+  image          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  // Better-Auth Relations
+  sessions       Session[]
+  accounts       Account[]
+  
+  banned        Boolean   @default(false)
   banReason     String?
   banExpires    DateTime?
-  sessions      Session[]
-  accounts      Account[]
 
   @@map("user")
-}
-
-model Student {
-  id         String       @id @default(cuid())
-  userId     String       @unique
-  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  rollNo     String       @unique
-  name       String
-  major      Major
-  year       AcademicYear
-  phone      String?
-  birthDate  DateTime?
-  results    Result[]
-  attendance Attendance[]
-
-  // Performance optimization for 2000+ students
-  @@index([major, year])
-  @@index([rollNo])
-}
-
-model Teacher {
-  id        String  @id @default(cuid())
-  userId    String  @unique
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name      String
-  phone     String?
-  // For Heads
-  majorHead Major? // If Major Head, which major
-  minorDept String? // If Minor Head (e.g., "Myanmar", "Maths")
-
-  // Teaching Assignments
-  assignments SubjectAssignment[]
-}
-
-model Subject {
-  id          String  @id @default(cuid())
-  code        String  @unique // e.g., "IT-3101"
-  name        String // e.g., "Data Structures"
-  isMinor     Boolean @default(false)
-  creditHours Int     @default(3)
-
-  results     Result[]
-  assignments SubjectAssignment[]
-}
-
-// This table links Teachers to specific Classes (Major + Year + Subject)
-// This is the core for your PERMISSION logic
-
-model SubjectAssignment {
-  id        String       @id @default(cuid())
-  teacherId String
-  teacher   Teacher      @relation(fields: [teacherId], references: [id])
-  subjectId String
-  subject   Subject      @relation(fields: [subjectId], references: [id])
-  major     Major
-  year      AcademicYear
-  canEdit   Boolean      @default(true) // Set by Head
-
-  @@unique([teacherId, subjectId, major, year])
-}
-
-model Result {
-  id           String       @id @default(cuid())
-  studentId    String
-  student      Student      @relation(fields: [studentId], references: [id])
-  subjectId    String
-  subject      Subject      @relation(fields: [subjectId], references: [id])
-  marks        Float
-  grade        String // A, B, C, D, F
-  gradePoint   Float // For GPA Calculation
-  semester     Int // 1 or 2
-  academicYear String // e.g., "2025-2026"
-  status       ResultStatus @default(PENDING)
-  uploadedBy   String // Teacher ID
-  approvedBy   String? // Major Head ID
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([studentId, academicYear])
-}
-
-model Attendance {
-  id        String           @id @default(cuid())
-  studentId String
-  student   Student          @relation(fields: [studentId], references: [id])
-  date      DateTime         @default(now())
-  status    AttendanceStatus
-  subjectId String?
-
-  @@index([studentId, date])
-}
-
-model CalendarEvent {
-  id          String        @id @default(cuid())
-  title       String
-  description String?
-  type        EventType
-  startDate   DateTime
-  endDate     DateTime
-  // Targeted Audience
-  major       Major? // If null, it's school-wide
-  year        AcademicYear?
-  createdBy   String // Admin ID
 }
 
 model Session {
   id             String   @id
   expiresAt      DateTime
-  token          String
+  token          String   @unique
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   ipAddress      String?
   userAgent      String?
   userId         String
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  impersonatedBy String?
 
-  @@unique([token])
   @@index([userId])
   @@map("session")
 }
@@ -233,4 +118,161 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+model Teacher {
+  id             String          @id @default(cuid())
+  userId         String          @unique
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // A teacher is assigned to exactly one major
+  major          Major
+  
+  // Capabilities
+  questionPapers QuestionPaper[]
+  results        Result[]
+  attendance     Attendance[]
+
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@map("teachers")
+}
+
+model Student {
+  id          String       @id @default(cuid())
+  userId      String       @unique
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  rollNo      String       @unique
+  name        String
+  major       Major
+  year        AcademicYear
+  phoneNumber String?
+  address     String?
+  
+  // Capabilities
+  submissions Submission[]
+  results     Result[]
+  attendance  Attendance[]
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Performance Optimization for 2,000+ students
+  @@index([major, year])
+  @@map("students")
+}
+
+model Subject {
+  id             String          @id @default(cuid())
+  code           String          @unique // e.g., "IT-3101"
+  name           String
+  major          Major
+  year           AcademicYear
+  creditHours    Int             @default(3)
+  
+  questionPapers QuestionPaper[]
+  submissions    Submission[]
+  results        Result[]
+  attendance     Attendance[]
+
+  // Indexing for faster subject lookups per major/year
+  @@index([major, year])
+  @@map("subjects")
+}
+
+model QuestionPaper {
+  id        String   @id @default(cuid())
+  subjectId String
+  subject   Subject  @relation(fields: [subjectId], references: [id])
+  
+  teacherId String
+  teacher   Teacher  @relation(fields: [teacherId], references: [id])
+  
+  pdfUrl    String   // URL to the PDF file
+  
+  // Denormalized for fast filtering by teacher scope
+  major     Major
+  year      AcademicYear
+
+  createdAt DateTime @default(now())
+
+  @@index([major, year])
+  @@map("question_papers")
+}
+
+model Submission {
+  id          String   @id @default(cuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id])
+  
+  subjectId   String
+  subject     Subject  @relation(fields: [subjectId], references: [id])
+  
+  pdfUrl      String   // URL to the submitted PDF
+  
+  // Denormalized for fast filtering
+  major       Major
+  year        AcademicYear
+
+  submittedAt DateTime @default(now())
+
+  // Ensure "single PDF Answer File per subject" per student
+  @@unique([studentId, subjectId])
+  @@index([major, year])
+  @@map("submissions")
+}
+
+model Result {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id])
+  
+  subjectId String
+  subject   Subject  @relation(fields: [subjectId], references: [id])
+  
+  teacherId String
+  teacher   Teacher  @relation(fields: [teacherId], references: [id])
+  
+  marks     Float
+  grade     String   // e.g., "A", "B+", "F"
+  semester  Int      @default(1)
+  academicYear String @default("2025-2026")
+  
+  // Denormalized for fast filtering
+  major     Major
+  year      AcademicYear
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // One result per student per subject
+  @@unique([studentId, subjectId])
+  @@index([major, year])
+  @@map("results")
+}
+
+model Attendance {
+  id        String           @id @default(cuid())
+  studentId String
+  student   Student          @relation(fields: [studentId], references: [id])
+
+  subjectId String
+  subject   Subject          @relation(fields: [subjectId], references: [id])
+
+  teacherId String?
+  teacher   Teacher?         @relation(fields: [teacherId], references: [id])
+
+  date      DateTime         @default(now())
+  status    AttendanceStatus @default(PRESENT)
+
+  // Denormalized
+  major     Major?
+  year      AcademicYear?
+
+  @@index([studentId, date])
+  @@index([major, year, date])
+  @@unique([studentId, date, subjectId])
+  @@map("attendance")
 }

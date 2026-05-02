@@ -2,7 +2,7 @@ import { useState } from "react";
 import { TrendingUp, ChevronDown, ChevronUp } from "lucide-react";
 
 interface Grade {
-  id: number;
+  id: string;
   code: string;
   name: string;
   credits: number;
@@ -59,7 +59,7 @@ export default function GPACard({ gpa, grades, showDetails = false }: GPACardPro
           <p className="text-xs text-slate-400 mt-0.5">{grades.length} subjects · {grades.reduce((s, g) => s + g.credits, 0)} credits</p>
         </div>
         <div className="text-right">
-          <div className="text-3xl font-bold bg-gradient-to-r from-emerald-500 to-green-600 bg-clip-text text-transparent">
+          <div className="text-3xl font-bold bg-linear-to-r from-emerald-500 to-green-600 bg-clip-text text-transparent">
             {gpa.toFixed(2)}
           </div>
           <div className="text-xs text-slate-400">Cumulative GPA</div>

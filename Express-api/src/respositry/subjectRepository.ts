@@ -1,5 +1,5 @@
 import prisma from "../lib/prisma";
-import { Prisma } from "@prisma/client";
+import { Major, AcademicYear, Prisma } from "@prisma/client";
 
 // ---------------------------------------------------------------------------
 // Queries
@@ -14,15 +14,13 @@ export async function findSubjectByCode(code: string) {
 }
 
 export async function findAllSubjects(params?: {
-  isMinor?: boolean;
   page?: number;
   limit?: number;
   search?: string;
 }) {
-  const { isMinor, page = 1, limit = 50, search } = params ?? {};
+  const { page = 1, limit = 50, search } = params ?? {};
 
   const where: Prisma.SubjectWhereInput = {};
-  if (isMinor !== undefined) where.isMinor = isMinor;
   if (search) {
     where.OR = [
       { code: { contains: search, mode: "insensitive" } },
@@ -49,6 +47,13 @@ export async function findAllSubjects(params?: {
   };
 }
 
+export async function findSubjectsByMajor(major: Major) {
+  return prisma.subject.findMany({
+    where: { major },
+    orderBy: { year: "asc" },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Mutations
 // ---------------------------------------------------------------------------
@@ -56,8 +61,8 @@ export async function findAllSubjects(params?: {
 export async function createSubject(data: {
   code: string;
   name: string;
-  isMinor?: boolean;
-  creditHours?: number;
+  major: Major;
+  year: AcademicYear;
 }) {
   return prisma.subject.create({ data });
 }

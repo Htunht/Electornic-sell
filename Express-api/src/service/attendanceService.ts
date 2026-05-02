@@ -1,4 +1,4 @@
-import { AttendanceStatus } from "@prisma/client";
+import { AttendanceStatus, Major, AcademicYear, Prisma } from "@prisma/client";
 import * as attendanceRepo from "../respositry/attendanceRepository";
 
 // ---------------------------------------------------------------------------
@@ -41,6 +41,24 @@ export async function bulkMarkAttendance(
   }[],
 ) {
   return attendanceRepo.createManyAttendance(records);
+}
+
+/**
+ * Bulk upsert attendance (safe to re-submit).
+ * Requires a unique constraint on (studentId, date, subjectId).
+ */
+export async function bulkUpsertAttendance(
+  records: {
+    studentId: string;
+    date: Date;
+    status: AttendanceStatus;
+    subjectId: string;
+    teacherId?: string;
+    major?: Major;
+    year?: AcademicYear;
+  }[],
+) {
+  return attendanceRepo.upsertManyAttendance(records);
 }
 
 export async function updateAttendanceStatus(

@@ -9,6 +9,7 @@ import ForgetPasswordPage from "./pages/auth/forgot-password";
 import ResetPasswordPage from "./components/auth/reset-password";
 import StudentDashboard from "./pages/dashboard/StudentDashboard";
 import TeacherDashboard from "./pages/dashboard/TeacherDashboard";
+import TeacherStudentsYear from "./pages/dashboard/TeacherStudentsYear";
 
 import { useSession } from "./lib/auth-client";
 
@@ -34,6 +35,7 @@ export const router = createBrowserRouter([
       { index: true, element: <RoleRedirect /> },
       { path: "student", Component: StudentDashboard },
       { path: "teacher", Component: TeacherDashboard },
+      { path: "teacher/students/:year", Component: TeacherStudentsYear },
     ],
   },
   {

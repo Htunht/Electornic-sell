@@ -42,8 +42,7 @@ export async function createTeacher(data: {
   userId: string;
   name: string;
   phone?: string;
-  majorHead?: Major;
-  minorDept?: string;
+  major: Major;
 }) {
   return teacherRepo.createTeacher(data);
 }
@@ -53,8 +52,7 @@ export async function updateTeacher(
   data: {
     name?: string;
     phone?: string;
-    majorHead?: Major | null;
-    minorDept?: string | null;
+    major?: Major;
   },
 ) {
   await getTeacherById(id);

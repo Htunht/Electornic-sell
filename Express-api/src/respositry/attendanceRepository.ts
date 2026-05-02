@@ -19,6 +19,7 @@ export async function findAttendanceByStudent(
 
   return prisma.attendance.findMany({
     where,
+    include: { subject: true },
     orderBy: { date: "desc" },
   });
 }
@@ -67,6 +68,47 @@ export async function createManyAttendance(
   }[],
 ) {
   return prisma.attendance.createMany({ data: records });
+}
+
+export async function upsertManyAttendance(
+  records: {
+    studentId: string;
+    date: Date;
+    status: AttendanceStatus;
+    subjectId: string;
+    teacherId?: string;
+    major?: any;
+    year?: any;
+  }[],
+) {
+  const ops = records.map((r) =>
+    prisma.attendance.upsert({
+      where: {
+        studentId_date_subjectId: {
+          studentId: r.studentId,
+          date: r.date,
+          subjectId: r.subjectId,
+        },
+      },
+      create: {
+        studentId: r.studentId,
+        date: r.date,
+        status: r.status,
+        subjectId: r.subjectId,
+        teacherId: r.teacherId ?? null,
+        major: r.major ?? null,
+        year: r.year ?? null,
+      },
+      update: {
+        status: r.status,
+        teacherId: r.teacherId ?? null,
+        major: r.major ?? null,
+        year: r.year ?? null,
+      },
+    }),
+  );
+
+  return prisma.$transaction(ops);
 }
 
 export async function updateAttendance(

@@ -75,7 +75,8 @@ export async function createStudent(data: {
   name: string;
   major: Major;
   year: AcademicYear;
-  phone?: string;
+  phoneNumber?: string;
+  address?: string;
   birthDate?: Date;
 }) {
   return prisma.student.create({ data, include: { user: true } });
@@ -94,6 +95,25 @@ export async function updateStudent(
 
 export async function deleteStudent(id: string) {
   return prisma.student.delete({ where: { id } });
+}
+
+export async function updateStudentProfile(data: {
+  userId: string;
+  rollNo: string;
+  year: AcademicYear;
+  phoneNumber?: string;
+  address?: string;
+}) {
+  return prisma.student.update({
+    where: { userId: data.userId },
+    data: {
+      rollNo: data.rollNo,
+      year: data.year,
+      phoneNumber: data.phoneNumber,
+      address: data.address,
+    },
+    include: { user: true },
+  });
 }
 
 /**

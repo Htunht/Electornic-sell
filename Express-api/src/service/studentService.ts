@@ -61,6 +61,22 @@ export async function createStudent(data: {
   return studentRepo.createStudent(data);
 }
 
+export async function completeStudentProfile(data: {
+  userId: string;
+  rollNo: string;
+  year: AcademicYear;
+  phoneNumber?: string;
+  address?: string;
+}) {
+  // Check if rollNo already exists for another student
+  const existing = await studentRepo.findStudentByRollNo(data.rollNo);
+  if (existing && existing.userId !== data.userId) {
+    throw new ServiceError(409, `Roll number ${data.rollNo} already exists.`);
+  }
+
+  return studentRepo.updateStudentProfile(data);
+}
+
 export async function updateStudent(
   id: string,
   data: {

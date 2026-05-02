@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Search, Filter } from "lucide-react";
 
 interface Grade {
-  id: number;
+  id: string;
   code: string;
   name: string;
   credits: number;
@@ -91,7 +91,7 @@ export default function GradeTable({ grades }: GradeTableProps) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {filtered.map((g, i) => (
+            {filtered.map((g) => (
               <tr key={g.id} className="hover:bg-slate-50/50 transition-colors group">
                 <td className="px-3 py-3.5 pl-4 font-mono text-xs text-emerald-600 font-medium">{g.code}</td>
                 <td className="px-3 py-3.5 text-slate-700 font-medium max-w-[200px] truncate">{g.name}</td>
@@ -100,7 +100,7 @@ export default function GradeTable({ grades }: GradeTableProps) {
                   <div className="flex items-center gap-2">
                     <div className="flex-1 max-w-[60px] h-1.5 rounded-full bg-slate-100 overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-green-500"
+                        className="h-full rounded-full bg-linear-to-r from-emerald-500 to-green-500"
                         style={{ width: `${g.marks}%` }}
                       />
                     </div>

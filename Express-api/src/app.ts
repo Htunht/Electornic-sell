@@ -3,6 +3,7 @@ import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
 import cors from "cors";
 import adminRoutes from "./routes/admin/index";
+import apiRoutes from "./routes/apiRoutes";
 
 const app = express();
 
@@ -29,29 +30,7 @@ app.use((req, res, next) => {
 });
 
 // 5. API Routes (Directly in app.ts for maximum reliability)
-import * as studentController from "./controller/api/studentController";
-import * as teacherController from "./controller/api/teacherController";
-import * as calendarController from "./controller/api/calendarController";
-import { authGuard, requireRole } from "./middleware/auth";
-
-const v1 = express.Router();
-v1.use((req, res, next) => {
-  console.log(`[V1 ROUTE] ${req.method} ${req.path}`);
-  next();
-});
-
-// Student
-v1.get("/students/me", authGuard, requireRole("STUDENT"), studentController.getMe as any);
-v1.get("/students/me/results", authGuard, requireRole("STUDENT"), studentController.getMyResults as any);
-
-// Teacher
-v1.get("/teachers/me", authGuard, requireRole("TEACHER", "MAJOR_HEAD"), teacherController.getMe as any);
-v1.get("/teachers/me/assignments", authGuard, requireRole("TEACHER", "MAJOR_HEAD"), teacherController.getMyAssignments as any);
-
-// Calendar
-v1.get("/calendar/events", authGuard, calendarController.getMyEvents as any);
-
-app.use("/api/v1", v1);
+app.use("/api/v1", apiRoutes);
 app.use("/api/admin", adminRoutes);
 
 // 6. Health check

@@ -3,7 +3,7 @@ import { AuthenticatedRequest } from "../../middleware/auth";
 import * as calendarService from "../../service/calendarService";
 import * as studentService from "../../service/studentService";
 import { ServiceError } from "../../service/userService";
-import { EventType, Major, AcademicYear } from "@prisma/client";
+import { Major, AcademicYear } from "@prisma/client";
 
 export async function getMyEvents(req: AuthenticatedRequest, res: Response) {
   try {

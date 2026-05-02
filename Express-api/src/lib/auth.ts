@@ -39,7 +39,7 @@ export const auth = betterAuth({
       },
     }),
     admin({
-      adminRole: "SUPER_ADMIN",
+      adminRole: "TEACHER",
       defaultRole: "STUDENT"
     }),
   ],

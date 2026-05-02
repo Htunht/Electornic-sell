@@ -7,6 +7,7 @@ import GradeTable from "../../components/dashboard/GradeTable";
 import AttendanceSummary from "../../components/dashboard/AttendanceSummary";
 import CalendarWidget from "../../components/dashboard/CalendarWidget";
 import DashboardNav from "../../components/dashboard/DashboardNav";
+import CompleteStudentProfileCard from "../../components/dashboard/CompleteStudentProfileCard";
 import { studentApi, calendarApi } from "../../lib/api";
 
 // ─── Student Dashboard ────────────────────────────────────────────────────────
@@ -17,10 +18,24 @@ export default function StudentDashboard() {
     "overview" | "grades" | "attendance"
   >("overview");
 
-  const [studentData, setStudentData] = useState<any>(null);
-  const [results, setResults] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
+  const [studentData, setStudentData] = useState<unknown>(null);
+  const [results, setResults] = useState<unknown[]>([]);
+  const [events, setEvents] = useState<unknown[]>([]);
+  const [attendanceRaw, setAttendanceRaw] = useState<unknown[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const refreshAll = async () => {
+    const [profileRes, resultsRes, eventsRes, attendanceRes] = await Promise.all([
+      studentApi.getMe(),
+      studentApi.getResults(),
+      calendarApi.getEvents(),
+      studentApi.getAttendance(),
+    ]);
+    setStudentData(profileRes.data);
+    setResults(Array.isArray(resultsRes.data) ? resultsRes.data : []);
+    setEvents(eventsRes.data?.events || []);
+    setAttendanceRaw(Array.isArray(attendanceRes.data) ? attendanceRes.data : []);
+  };
 
   useEffect(() => {
     if (!isPending) {
@@ -36,16 +51,7 @@ export default function StudentDashboard() {
     if (session) {
       const fetchData = async () => {
         try {
-          const [profileRes, resultsRes, eventsRes] = await Promise.all([
-            studentApi.getMe(),
-            studentApi.getResults(),
-            calendarApi.getEvents(),
-          ]);
-          console.log("DEBUG: Results Data:", resultsRes.data);
-          console.log("DEBUG: Events Data:", eventsRes.data);
-          setStudentData(profileRes.data);
-          setResults(Array.isArray(resultsRes.data) ? resultsRes.data : []);
-          setEvents(eventsRes.data?.events || []);
+          await refreshAll();
         } catch (error) {
           console.error("Error fetching student data:", error);
         } finally {
@@ -71,39 +77,102 @@ export default function StudentDashboard() {
 
   if (!session || !studentData) return null;
 
+  const student = studentData as {
+    rollNo?: string;
+    name?: string;
+    major?: string;
+    year?: string;
+    phoneNumber?: string | null;
+    address?: string | null;
+  };
+
   // Calculate GPA from real results
-  const totalGradePoints = results.reduce(
-    (acc, r) => acc + r.gradePoint * (r.subject?.creditHours || 0),
+  const typedResults = results as Array<{
+    gradePoint?: number;
+    semester?: number;
+    academicYear?: string;
+    subject?: { code?: string; name?: string; creditHours?: number };
+  }>;
+
+  const totalGradePoints = typedResults.reduce(
+    (acc, r) => acc + (r.gradePoint ?? 0) * (r.subject?.creditHours ?? 0),
     0,
   );
-  const totalCredits = results.reduce(
-    (acc, r) => acc + (r.subject?.creditHours || 0),
+  const totalCredits = typedResults.reduce(
+    (acc, r) => acc + (r.subject?.creditHours ?? 0),
     0,
   );
   const currentGPA = totalCredits > 0 ? totalGradePoints / totalCredits : 0;
 
   const profileInfo = {
-    rollNo: studentData.rollNo,
-    name: studentData.name,
-    major: studentData.major,
-    year: studentData.year,
+    rollNo: student.rollNo ?? "",
+    name: student.name ?? "",
+    major: student.major ?? "",
+    year: student.year ?? "",
     email: session.user.email,
-    phone: studentData.phone || "N/A",
+    phone: student.phoneNumber || "N/A",
     gpa: currentGPA,
     totalCredits: totalCredits,
-    semester: results[0]?.semester || 1,
-    academicYear: results[0]?.academicYear || "2025-2026",
+    semester: typedResults[0]?.semester || 1,
+    academicYear: typedResults[0]?.academicYear || "2025-2026",
   };
 
-  const formattedGrades = results.map((r) => ({
-    ...r,
+  const needsProfile =
+    !student.rollNo || !student.year || !student.phoneNumber || !student.address;
+
+  const formattedGrades = (typedResults as Array<any>).map((r, idx) => ({
+    id: String(r.id ?? idx),
     code: r.subject?.code || "N/A",
     name: r.subject?.name || "N/A",
     credits: r.subject?.creditHours || 0,
+    marks: r.marks ?? 0,
+    grade: r.grade ?? "N/A",
+    gradePoint: r.gradePoint ?? 0,
+    semester: r.semester ?? 1,
+    status: r.status ?? "APPROVED",
   }));
 
+  // Convert raw attendance rows into AttendanceSummary format (per subject)
+  type AttendanceSummaryRow = {
+    id: string;
+    code: string;
+    name: string;
+    total: number;
+    present: number;
+    absent: number;
+    leave: number;
+  };
+
+  const typedAttendance = attendanceRaw as Array<{
+    subjectId?: string;
+    status?: "PRESENT" | "ABSENT" | "LATE" | "EXCUSED";
+    subject?: { code?: string; name?: string };
+  }>;
+
+  const attendanceSummary = Object.values(
+    typedAttendance.reduce<Record<string, AttendanceSummaryRow>>((acc, row) => {
+      const key = row.subjectId ?? "unknown";
+      if (!acc[key]) {
+        acc[key] = {
+          id: key,
+          code: row.subject?.code ?? "N/A",
+          name: row.subject?.name ?? "Unknown Subject",
+          total: 0,
+          present: 0,
+          absent: 0,
+          leave: 0,
+        };
+      }
+      acc[key].total += 1;
+      if (row.status === "PRESENT") acc[key].present += 1;
+      else if (row.status === "ABSENT") acc[key].absent += 1;
+      else acc[key].leave += 1;
+      return acc;
+    }, {}),
+  );
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-emerald-50 via-white to-white text-slate-900 font-sans">
+    <div className="min-h-screen bg-linear-to-b from-emerald-50 via-white to-white text-slate-900 font-sans">
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -left-40 w-[700px] h-[700px] rounded-full bg-emerald-200/20 blur-[130px]" />
         <div className="absolute top-1/4 -right-20 w-[600px] h-[600px] rounded-full bg-green-200/20 blur-[120px]" />
@@ -114,19 +183,29 @@ export default function StudentDashboard() {
         <DashboardNav session={session} />
 
         <div className="mt-6">
+          {needsProfile && (
+            <CompleteStudentProfileCard
+              initialRollNo={student.rollNo}
+              initialYear={student.year}
+              initialPhoneNumber={student.phoneNumber}
+              initialAddress={student.address}
+              onCompleted={refreshAll}
+              className="mb-6"
+            />
+          )}
           <StudentProfile student={profileInfo} />
         </div>
 
         <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
           <QuickStat
             label="Roll Number"
-            value={studentData.rollNo}
+            value={student.rollNo ?? ""}
             icon="🎓"
             color="from-emerald-50 to-emerald-100 border-emerald-200"
           />
           <QuickStat
             label="Academic Year"
-            value={studentData.year}
+            value={student.year ?? ""}
             icon="📅"
             color="from-green-50 to-green-100 border-green-200"
           />
@@ -165,7 +244,7 @@ export default function StudentDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 flex flex-col gap-6">
                 <GPACard gpa={currentGPA} grades={formattedGrades} />
-                <AttendanceSummary attendance={[]} compact />
+                <AttendanceSummary attendance={attendanceSummary} compact />
               </div>
               <div>
                 <CalendarWidget events={events} />
@@ -180,7 +259,7 @@ export default function StudentDashboard() {
             </div>
           )}
 
-          {activeTab === "attendance" && <AttendanceSummary attendance={[]} />}
+          {activeTab === "attendance" && <AttendanceSummary attendance={attendanceSummary} />}
         </div>
       </div>
     </div>
@@ -200,7 +279,7 @@ function QuickStat({
 }) {
   return (
     <div
-      className={`bg-gradient-to-br ${color} border rounded-2xl p-4 hover:scale-[1.02] transition-transform duration-200 shadow-sm`}
+      className={`bg-linear-to-br ${color} border rounded-2xl p-4 hover:scale-[1.02] transition-transform duration-200 shadow-sm`}
     >
       <div className="text-2xl mb-2">{icon}</div>
       <div className="text-xl font-bold text-slate-800">{value}</div>

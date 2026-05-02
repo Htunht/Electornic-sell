@@ -16,12 +16,15 @@ export async function getSubjectByCode(code: string) {
 }
 
 export async function listSubjects(params?: {
-  isMinor?: boolean;
   page?: number;
   limit?: number;
   search?: string;
 }) {
   return subjectRepo.findAllSubjects(params);
+}
+
+export async function getSubjectsByMajor(major: any) {
+  return subjectRepo.findSubjectsByMajor(major);
 }
 
 // ---------------------------------------------------------------------------
@@ -31,8 +34,8 @@ export async function listSubjects(params?: {
 export async function createSubject(data: {
   code: string;
   name: string;
-  isMinor?: boolean;
-  creditHours?: number;
+  major: any;
+  year: any;
 }) {
   const existing = await subjectRepo.findSubjectByCode(data.code);
   if (existing)

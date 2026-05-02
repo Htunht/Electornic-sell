@@ -1,17 +1,5 @@
 import { CalendarDays } from "lucide-react";
 
-interface CalendarEvent {
-  id: number;
-  title: string;
-  type: "EXAM" | "ASSIGNMENT" | "HOLIDAY" | "TUTORIAL";
-  date: string;
-  description: string;
-}
-
-interface CalendarWidgetProps {
-  events: CalendarEvent[];
-}
-
 const TYPE_CONFIG = {
   EXAM:       { emoji: "📝", color: "border-red-200 bg-red-50",    label: "Exam",       badge: "text-red-600 bg-red-50 border-red-100" },
   ASSIGNMENT: { emoji: "📋", color: "border-emerald-200 bg-emerald-50",   label: "Assignment", badge: "text-emerald-600 bg-emerald-50 border-emerald-100" },
@@ -54,7 +42,7 @@ export default function CalendarWidget({ events = [] }: { events?: any[] }) {
               className={`relative rounded-2xl border p-4 ${cfg.color} hover:scale-[1.01] transition-transform duration-200 group cursor-default shadow-sm border-opacity-50`}
             >
               <div className="flex items-start gap-3">
-                <div className="text-xl flex-shrink-0 mt-0.5">{cfg.emoji}</div>
+                <div className="text-xl shrink-0 mt-0.5">{cfg.emoji}</div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
                     <span className="text-sm font-semibold text-slate-700">{event.title}</span>

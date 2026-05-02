@@ -8,14 +8,18 @@ import { Major, Prisma } from "@prisma/client";
 export async function findTeacherById(id: string) {
   return prisma.teacher.findUnique({
     where: { id },
-    include: { user: true, assignments: { include: { subject: true } } },
+    include: { 
+      user: true, 
+      questionPapers: true, 
+      results: true 
+    },
   });
 }
 
 export async function findTeacherByUserId(userId: string) {
   return prisma.teacher.findUnique({
     where: { userId },
-    include: { user: true, assignments: { include: { subject: true } } },
+    include: { user: true, questionPapers: true, results: true },
   });
 }
 
@@ -28,16 +32,16 @@ export async function findAllTeachers(params?: {
 
   const where: Prisma.TeacherWhereInput = {};
   if (search) {
-    where.name = { contains: search, mode: "insensitive" };
+    where.user = { name: { contains: search, mode: "insensitive" } };
   }
 
   const [teachers, total] = await Promise.all([
     prisma.teacher.findMany({
       where,
-      include: { user: true, assignments: { include: { subject: true } } },
+      include: { user: true, questionPapers: true, results: true },
       skip: (page - 1) * limit,
       take: limit,
-      orderBy: { name: "asc" },
+      orderBy: { user: { name: "asc" } },
     }),
     prisma.teacher.count({ where }),
   ]);
@@ -54,7 +58,7 @@ export async function findAllTeachers(params?: {
 /** Find the Major Head for a given major */
 export async function findMajorHead(major: Major) {
   return prisma.teacher.findFirst({
-    where: { majorHead: major },
+    where: { major: major as Major },
     include: { user: true },
   });
 }
@@ -62,7 +66,7 @@ export async function findMajorHead(major: Major) {
 /** Find all Minor Heads */
 export async function findMinorHeads() {
   return prisma.teacher.findMany({
-    where: { minorDept: { not: null } },
+    where: {}, // All teachers
     include: { user: true },
   });
 }
@@ -75,10 +79,9 @@ export async function createTeacher(data: {
   userId: string;
   name: string;
   phone?: string;
-  majorHead?: Major;
-  minorDept?: string;
+  major: Major;
 }) {
-  return prisma.teacher.create({ data, include: { user: true } });
+  return prisma.teacher.create({ data: { userId: data.userId, major: data.major }, include: { user: true } });
 }
 
 export async function updateTeacher(

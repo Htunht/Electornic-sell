@@ -11,6 +11,7 @@ import { auth } from "../lib/auth";
 export interface SessionUser {
   id: string;
   email: string;
+  name: string;
   role: Role;
 }
 
@@ -68,12 +69,12 @@ async function extractUser(req: Request): Promise<SessionUser | null> {
     // Re-fetch from DB to get the latest role (better-auth session may be stale)
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { id: true, email: true, role: true },
+      select: { id: true, email: true, name: true, role: true },
     });
 
     if (!user) return null;
 
-    return { id: user.id, email: user.email, role: user.role as Role };
+    return { id: user.id, email: user.email, name: user.name, role: user.role as Role };
   } catch (error) {
     console.error("[AUTH] extractUser error:", error);
     return null;
@@ -115,7 +116,7 @@ export async function adminGuard(req: Request, res: Response, next: NextFunction
     return res.status(401).json({ message: "Unauthorized: Please sign in." });
   }
 
-  if (user.role !== "SUPER_ADMIN") {
+  if (user.role !== "TEACHER") {
     console.warn(`[AUTH] adminGuard: ${user.email} attempted admin access with role ${user.role}`);
     return res.status(403).json({ message: "Forbidden: Super Admin privileges required." });
   }

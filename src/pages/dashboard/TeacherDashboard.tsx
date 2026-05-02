@@ -9,7 +9,7 @@ import {
   ClipboardCheck, 
   FileSpreadsheet, 
   PlusCircle,
-  ChevronRight
+  ChevronRight,
 } from "lucide-react";
 
 // ─── Teacher Dashboard ────────────────────────────────────────────────────────
@@ -38,7 +38,7 @@ export default function TeacherDashboard() {
         try {
           const [profileRes, assignmentsRes] = await Promise.all([
             teacherApi.getMe(),
-            teacherApi.getAssignments()
+            teacherApi.getAssignments(),
           ]);
           setTeacherData(profileRes.data);
           setAssignments(assignmentsRes.data);
@@ -66,7 +66,7 @@ export default function TeacherDashboard() {
   if (!session || !teacherData) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-emerald-50 via-white to-white text-slate-900 font-sans">
+    <div className="min-h-screen bg-linear-to-b from-emerald-50 via-white to-white text-slate-900 font-sans">
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -left-40 w-[700px] h-[700px] rounded-full bg-emerald-200/20 blur-[130px]" />
         <div className="absolute bottom-0 right-0 w-[500px] h-[500px] rounded-full bg-green-100/30 blur-[120px]" />
@@ -93,10 +93,10 @@ export default function TeacherDashboard() {
 
         {/* Quick Stats */}
         <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard label="Total Assignments" value={assignments.length.toString()} icon={<BookOpen className="text-blue-600" />} color="bg-blue-50" />
-          <StatCard label="Major" value={teacherData.majorHead || "IT"} icon={<Users className="text-emerald-600" />} color="bg-emerald-50" />
-          <StatCard label="Phone" value={teacherData.phone || "N/A"} icon={<ClipboardCheck className="text-amber-600" />} color="bg-amber-50" />
-          <StatCard label="Role" value={session.user.role} icon={<Users className="text-teal-600" />} color="bg-teal-50" />
+          <StatCard label="Total Assignments" value={String(assignments.length)} icon={<BookOpen className="text-blue-600" />} color="bg-blue-50" />
+          <StatCard label="Major" value={String(teacherData.majorHead ?? "IT")} icon={<Users className="text-emerald-600" />} color="bg-emerald-50" />
+          <StatCard label="Phone" value={String(teacherData.phone ?? "N/A")} icon={<ClipboardCheck className="text-amber-600" />} color="bg-amber-50" />
+          <StatCard label="Role" value={String(session.user.role ?? "")} icon={<Users className="text-teal-600" />} color="bg-teal-50" />
         </div>
 
         {/* Main Content Tabs */}
@@ -158,9 +158,36 @@ export default function TeacherDashboard() {
             )}
 
             {activeTab === "students" && (
-              <div className="p-10 text-center text-slate-400">
-                <Users size={48} className="mx-auto mb-4 opacity-20" />
-                <p>Student directory features coming soon based on assignment selection.</p>
+              <div className="space-y-6">
+                <SectionTitle title="Students by Year" />
+                <p className="text-sm text-slate-500 -mt-2">
+                  Choose a year to view and paginate students.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {["YEAR_1","YEAR_2","YEAR_3","YEAR_4","YEAR_5","YEAR_6"].map((y) => (
+                    <button
+                      key={y}
+                      onClick={() => navigate(`/teacher/students/${y}`)}
+                      className="text-left rounded-3xl border border-slate-200/70 bg-linear-to-br from-white to-emerald-50/40 p-5 hover:shadow-md hover:shadow-emerald-100 transition-all"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                          Students
+                        </div>
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full">
+                          {y.replace("_", " ")}
+                        </span>
+                      </div>
+                      <div className="mt-3 text-xl font-bold text-slate-800">
+                        {y.replace("_", " ")}
+                      </div>
+                      <div className="mt-2 text-sm text-slate-500">
+                        View & paginate {y.replace("_", " ").toLowerCase()} students →
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>

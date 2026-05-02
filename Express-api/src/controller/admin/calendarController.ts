@@ -2,7 +2,7 @@ import { Response } from "express";
 import { AuthenticatedRequest } from "../../middleware/auth";
 import * as calendarService from "../../service/calendarService";
 import { ServiceError } from "../../service/userService";
-import { EventType, Major, AcademicYear } from "@prisma/client";
+import { Major, AcademicYear } from "@prisma/client";
 
 // GET /api/admin/calendar
 export async function listEvents(req: AuthenticatedRequest, res: Response) {
@@ -10,7 +10,7 @@ export async function listEvents(req: AuthenticatedRequest, res: Response) {
     const { type, major, year, startDate, endDate, page, limit } = req.query;
 
     const result = await calendarService.listEvents({
-      type: type as EventType | undefined,
+      type: type as string | undefined,
       major: major as Major | undefined,
       year: year as AcademicYear | undefined,
       startDate: startDate ? new Date(startDate as string) : undefined,

@@ -1,4 +1,4 @@
-import { EventType, Major, AcademicYear } from "@prisma/client";
+import { Major, AcademicYear } from "@prisma/client";
 import * as calendarRepo from "../respositry/calendarRepository";
 import { ServiceError } from "./userService";
 
@@ -13,7 +13,7 @@ export async function getEventById(id: string) {
 }
 
 export async function listEvents(params?: {
-  type?: EventType;
+  type?: string;
   major?: Major | null;
   year?: AcademicYear;
   startDate?: Date;
@@ -31,7 +31,7 @@ export async function listEvents(params?: {
 export async function createEvent(data: {
   title: string;
   description?: string;
-  type: EventType;
+  type: string;
   startDate: Date;
   endDate: Date;
   major?: Major;
@@ -49,7 +49,7 @@ export async function updateEvent(
   data: {
     title?: string;
     description?: string;
-    type?: EventType;
+    type?: string;
     startDate?: Date;
     endDate?: Date;
     major?: Major | null;

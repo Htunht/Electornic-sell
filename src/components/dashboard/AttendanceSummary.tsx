@@ -1,7 +1,7 @@
 import { Users, CheckCircle, XCircle, Clock } from "lucide-react";
 
 interface AttendanceRecord {
-  id: number;
+  id: string;
   code: string;
   name: string;
   total: number;
@@ -79,7 +79,7 @@ export default function AttendanceSummary({ attendance, compact = false }: Atten
                     <span className="text-xs text-slate-400">{a.code} · {a.present}/{a.total} classes</span>
                   )}
                 </div>
-                <span className={`text-sm font-bold tabular-nums flex-shrink-0 ${style.text}`}>{pct}%</span>
+                <span className={`text-sm font-bold tabular-nums shrink-0 ${style.text}`}>{pct}%</span>
               </div>
               <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
                 <div
