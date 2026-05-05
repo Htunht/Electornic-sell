@@ -35,10 +35,10 @@ export async function getUser(req: AuthenticatedRequest, res: Response) {
 // POST /api/admin/users
 export async function createUser(req: AuthenticatedRequest, res: Response) {
   try {
-    const { email, password, role } = req.body;
+    const { email, name, password, role } = req.body;
     if (!email) return res.status(400).json({ message: "Email is required." });
 
-    const user = await userService.createUser({ email, password, role });
+    const user = await userService.createUser({ email, name, password, role });
     return res.status(201).json(user);
   } catch (error) {
     return handleError(res, error);

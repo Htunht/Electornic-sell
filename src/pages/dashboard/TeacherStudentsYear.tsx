@@ -31,6 +31,9 @@ export default function TeacherStudentsYear() {
 
   const [subjects, setSubjects] = useState<any[]>([]);
   const [subjectId, setSubjectId] = useState<string>("");
+  const [allYearSubjects, setAllYearSubjects] = useState<any[]>([]);
+  const [assignmentBySubjectId, setAssignmentBySubjectId] = useState<Record<string, any>>({});
+  const [arranging, setArranging] = useState(false);
   const [entryDate, setEntryDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [marksByStudentId, setMarksByStudentId] = useState<Record<string, string>>({});
   const [attendanceByStudentId, setAttendanceByStudentId] = useState<Record<string, "PRESENT" | "ABSENT" | "LATE" | "EXCUSED">>({});
@@ -50,11 +53,23 @@ export default function TeacherStudentsYear() {
     async function loadSubjects() {
       if (!session) return;
       try {
-        const res = await teacherApi.getAssignments();
+        const [asgnRes, subjRes] = await Promise.all([
+          teacherApi.getAssignments(),
+          teacherApi.getSubjects({ year }),
+        ]);
         if (cancelled) return;
-        const list = Array.isArray(res.data) ? res.data : [];
-        setSubjects(list);
-        if (!subjectId && list[0]?.id) setSubjectId(String(list[0].id));
+        const list = Array.isArray(asgnRes.data?.assignments) ? asgnRes.data.assignments : [];
+        const yearAssignments = list.filter((a: any) => String(a.year) === String(year));
+        setSubjects(yearAssignments);
+        setAllYearSubjects(Array.isArray(subjRes.data) ? subjRes.data : []);
+        setAssignmentBySubjectId(
+          yearAssignments.reduce((acc: Record<string, any>, a: any) => {
+            if (a?.subject?.id) acc[String(a.subject.id)] = a;
+            return acc;
+          }, {}),
+        );
+        const firstSubjectId = yearAssignments[0]?.subject?.id;
+        if (!subjectId && firstSubjectId) setSubjectId(String(firstSubjectId));
       } catch {
         // keep empty
       }
@@ -63,7 +78,36 @@ export default function TeacherStudentsYear() {
     return () => {
       cancelled = true;
     };
-  }, [session, subjectId]);
+  }, [session, year, subjectId]);
+
+  async function toggleAssignment(sub: any) {
+    const sid = String(sub.id);
+    const existing = assignmentBySubjectId[sid];
+    setSaveMsg(null);
+    try {
+      if (existing?.id) {
+        await teacherApi.deleteAssignment(String(existing.id));
+      } else {
+        await teacherApi.createAssignment({ subjectId: sid, year });
+      }
+      const asgnRes = await teacherApi.getAssignments();
+      const list = Array.isArray(asgnRes.data?.assignments) ? asgnRes.data.assignments : [];
+      const yearAssignments = list.filter((a: any) => String(a.year) === String(year));
+      setSubjects(yearAssignments);
+      setAssignmentBySubjectId(
+        yearAssignments.reduce((acc: Record<string, any>, a: any) => {
+          if (a?.subject?.id) acc[String(a.subject.id)] = a;
+          return acc;
+        }, {}),
+      );
+      if (!yearAssignments.some((a: any) => String(a.subject?.id) === String(subjectId))) {
+        const nextId = yearAssignments[0]?.subject?.id;
+        setSubjectId(nextId ? String(nextId) : "");
+      }
+    } catch (e: unknown) {
+      setSaveMsg(e instanceof Error ? e.message : "Failed to update assignment.");
+    }
+  }
 
   // reset pagination when changing year/search
   useEffect(() => {
@@ -248,21 +292,27 @@ export default function TeacherStudentsYear() {
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                <button
+                  onClick={() => setArranging((v) => !v)}
+                  className="h-10 inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  {arranging ? "Close arrange subjects" : "Arrange subjects"}
+                </button>
                 {/* Subject pills */}
                 <div className="flex gap-2 overflow-x-auto pb-1">
-                  {subjects.slice(0, 12).map((sub) => (
+                  {subjects.slice(0, 12).map((asgn) => (
                     <button
-                      key={sub.id}
-                      onClick={() => setSubjectId(String(sub.id))}
+                      key={asgn.id}
+                      onClick={() => setSubjectId(String(asgn.subject?.id))}
                       className={cn(
                         "shrink-0 px-3 py-2 rounded-2xl border text-xs font-semibold transition-all",
-                        String(sub.id) === subjectId
+                        String(asgn.subject?.id) === subjectId
                           ? "bg-emerald-600 text-white border-emerald-600 shadow-sm shadow-emerald-200"
                           : "bg-white text-slate-700 border-slate-200 hover:bg-emerald-50 hover:border-emerald-200",
                       )}
-                      title={sub.name}
+                      title={asgn.subject?.name}
                     >
-                      {sub.code ?? "SUB"} · {String(sub.name ?? "Subject").slice(0, 14)}
+                      {asgn.subject?.code ?? "SUB"} · {String(asgn.subject?.name ?? "Subject").slice(0, 14)}
                     </button>
                   ))}
                 </div>
@@ -293,6 +343,39 @@ export default function TeacherStudentsYear() {
                 </div>
               </div>
             </div>
+            {arranging && (
+              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/60">
+                <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                  Subjects available for {yearLabel}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {allYearSubjects.map((sub) => {
+                    const assigned = !!assignmentBySubjectId[String(sub.id)];
+                    return (
+                      <button
+                        key={sub.id}
+                        onClick={() => toggleAssignment(sub)}
+                        className={cn(
+                          "px-3 py-2 rounded-2xl border text-xs font-semibold transition-all",
+                          assigned
+                            ? "bg-emerald-600 text-white border-emerald-600 shadow-sm shadow-emerald-200"
+                            : "bg-white text-slate-700 border-slate-200 hover:bg-emerald-50 hover:border-emerald-200",
+                        )}
+                        title={sub.name}
+                      >
+                        {sub.code} · {String(sub.name).slice(0, 18)}
+                      </button>
+                    );
+                  })}
+                  {allYearSubjects.length === 0 && (
+                    <div className="text-sm text-slate-500">No subjects found for this year.</div>
+                  )}
+                </div>
+                <div className="mt-3 text-xs text-slate-500">
+                  Click a subject to assign/unassign it for yourself (1 teacher per subject per year).
+                </div>
+              </div>
+            )}
             {saveMsg && (
               <div className="px-6 py-3 text-sm text-slate-700 bg-emerald-50 border-b border-emerald-100">
                 {saveMsg}

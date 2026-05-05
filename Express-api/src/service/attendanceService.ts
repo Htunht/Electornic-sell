@@ -27,7 +27,7 @@ export async function markAttendance(data: {
   studentId: string;
   date?: Date;
   status: AttendanceStatus;
-  subjectId?: string;
+  subjectId: string;
 }) {
   return attendanceRepo.createAttendance(data);
 }
@@ -37,7 +37,7 @@ export async function bulkMarkAttendance(
     studentId: string;
     date: Date;
     status: AttendanceStatus;
-    subjectId?: string;
+    subjectId: string;
   }[],
 ) {
   return attendanceRepo.createManyAttendance(records);

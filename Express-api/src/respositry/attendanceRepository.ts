@@ -53,7 +53,7 @@ export async function createAttendance(data: {
   studentId: string;
   date?: Date;
   status: AttendanceStatus;
-  subjectId?: string;
+  subjectId: string;
 }) {
   return prisma.attendance.create({ data });
 }
@@ -64,7 +64,7 @@ export async function createManyAttendance(
     studentId: string;
     date: Date;
     status: AttendanceStatus;
-    subjectId?: string;
+    subjectId: string;
   }[],
 ) {
   return prisma.attendance.createMany({ data: records });

@@ -2,13 +2,12 @@ import { Response } from "express";
 import { AuthenticatedRequest } from "../../middleware/auth";
 import * as resultService from "../../service/resultService";
 import { ServiceError } from "../../service/userService";
-import { Major, AcademicYear, ResultStatus } from "@prisma/client";
+import { Major, AcademicYear } from "@prisma/client";
 
 // GET /api/admin/results
 export async function listResults(req: AuthenticatedRequest, res: Response) {
   try {
-    const { subjectId, major, year, academicYear, semester, status, page, limit } =
-      req.query;
+    const { subjectId, major, year, page, limit } = req.query;
 
     if (!subjectId) {
       return res.status(400).json({ message: "subjectId query param is required." });
@@ -18,9 +17,6 @@ export async function listResults(req: AuthenticatedRequest, res: Response) {
       subjectId: subjectId as string,
       major: major as Major | undefined,
       year: year as AcademicYear | undefined,
-      academicYear: academicYear as string | undefined,
-      semester: semester ? Number(semester) : undefined,
-      status: status as ResultStatus | undefined,
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
     });
@@ -44,10 +40,11 @@ export async function getPendingResults(req: AuthenticatedRequest, res: Response
 // GET /api/admin/results/student/:studentId
 export async function getStudentResults(req: AuthenticatedRequest, res: Response) {
   try {
-    const { academicYear } = req.query;
+    const { major, year } = req.query;
     const results = await resultService.getStudentResults(
       req.params.studentId as string,
-      academicYear as string | undefined,
+      major as Major | undefined,
+      year as AcademicYear | undefined,
     );
     return res.json(results);
   } catch (error) {
@@ -58,19 +55,7 @@ export async function getStudentResults(req: AuthenticatedRequest, res: Response
 // POST /api/admin/results/:id/approve
 export async function approveResult(req: AuthenticatedRequest, res: Response) {
   try {
-    const { status } = req.body; // "APPROVED" | "REJECTED"
-
-    if (!status || !["APPROVED", "REJECTED"].includes(status)) {
-      return res.status(400).json({ message: "status must be APPROVED or REJECTED." });
-    }
-
-    const result = await resultService.approveResult(
-      req.params.id as string,
-      status,
-      req.user.id,
-    );
-
-    return res.json(result);
+    return res.status(410).json({ message: "Result approval is disabled in current schema." });
   } catch (error) {
     return handleError(res, error);
   }
@@ -79,14 +64,7 @@ export async function approveResult(req: AuthenticatedRequest, res: Response) {
 // POST /api/admin/results/bulk-approve
 export async function bulkApproveResults(req: AuthenticatedRequest, res: Response) {
   try {
-    const { ids, status } = req.body;
-
-    if (!ids?.length || !["APPROVED", "REJECTED"].includes(status)) {
-      return res.status(400).json({ message: "ids[] and status (APPROVED/REJECTED) required." });
-    }
-
-    const result = await resultService.bulkApproveResults(ids, status, req.user.id);
-    return res.json({ message: `${result.count} results updated.`, ...result });
+    return res.status(410).json({ message: "Result approval is disabled in current schema." });
   } catch (error) {
     return handleError(res, error);
   }

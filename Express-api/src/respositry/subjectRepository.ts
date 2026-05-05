@@ -63,8 +63,17 @@ export async function createSubject(data: {
   name: string;
   major: Major;
   year: AcademicYear;
+  creditHours?: number;
 }) {
-  return prisma.subject.create({ data });
+  return prisma.subject.create({
+    data: {
+      code: data.code,
+      name: data.name,
+      major: data.major,
+      year: data.year,
+      creditHours: data.creditHours ?? 3,
+    },
+  });
 }
 
 export async function updateSubject(

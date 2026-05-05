@@ -30,6 +30,7 @@ export async function listUsers(params?: {
 
 export async function createUser(data: {
   email: string;
+  name?: string;
   password?: string;
   role?: Role;
 }) {

@@ -12,6 +12,10 @@ export const studentApi = {
 export const teacherApi = {
   getMe: () => api.get("/teachers/me"),
   getAssignments: () => api.get("/teachers/me/assignments"),
+  getSubjects: (params?: { year?: string }) => api.get("/teachers/me/subjects", { params }),
+  createAssignment: (data: { subjectId: string; year: string; canEdit?: boolean }) =>
+    api.post("/teachers/me/assignments", data),
+  deleteAssignment: (id: string) => api.delete(`/teachers/me/assignments/${id}`),
   getStudents: (params?: { year?: string; search?: string; page?: number; limit?: number }) =>
     api.get("/teachers/students", { params }),
   bulkUpsertResults: (data: { subjectId: string; year: string; semester?: number; academicYear?: string; records: { studentId: string; marks: number }[] }) =>

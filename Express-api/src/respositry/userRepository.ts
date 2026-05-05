@@ -53,10 +53,18 @@ export async function findAllUsers(params?: {
 
 export async function createUser(data: {
   email: string;
+  name?: string;
   password?: string;
   role?: Role;
 }) {
-  return prisma.user.create({ data });
+  return prisma.user.create({
+    data: {
+      email: data.email,
+      name: data.name ?? data.email.split("@")[0] ?? data.email,
+      password: data.password,
+      role: data.role,
+    },
+  });
 }
 
 export async function updateUserRole(id: string, role: Role) {

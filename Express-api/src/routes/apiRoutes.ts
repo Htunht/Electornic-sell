@@ -59,6 +59,24 @@ router.get(
   teacherController.getMyAssignments as unknown as RequestHandler,
 );
 router.get(
+  "/teachers/me/subjects",
+  authGuard,
+  requireRole("TEACHER"),
+  teacherController.getMySubjects as unknown as RequestHandler,
+);
+router.post(
+  "/teachers/me/assignments",
+  authGuard,
+  requireRole("TEACHER"),
+  teacherController.createMyAssignment as unknown as RequestHandler,
+);
+router.delete(
+  "/teachers/me/assignments/:id",
+  authGuard,
+  requireRole("TEACHER"),
+  teacherController.deleteMyAssignment as unknown as RequestHandler,
+);
+router.get(
   "/teachers/students",
   authGuard,
   requireRole("TEACHER"),

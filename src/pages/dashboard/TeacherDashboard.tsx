@@ -41,7 +41,7 @@ export default function TeacherDashboard() {
             teacherApi.getAssignments(),
           ]);
           setTeacherData(profileRes.data);
-          setAssignments(assignmentsRes.data);
+          setAssignments(assignmentsRes.data?.assignments ?? []);
         } catch (error) {
           console.error("Error fetching teacher data:", error);
         } finally {
@@ -79,7 +79,7 @@ export default function TeacherDashboard() {
         <div className="mt-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
             <h1 className="text-3xl font-bold text-slate-800">Welcome back, {session.user.name || "Teacher"}!</h1>
-            <p className="text-slate-500 mt-1">Teaching at {teacherData.majorHead || "General"} Department</p>
+            <p className="text-slate-500 mt-1">Major: {String(teacherData.major ?? "—")}</p>
           </div>
           <div className="flex gap-3">
             <button className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition-all font-medium text-sm">
@@ -94,8 +94,8 @@ export default function TeacherDashboard() {
         {/* Quick Stats */}
         <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard label="Total Assignments" value={String(assignments.length)} icon={<BookOpen className="text-blue-600" />} color="bg-blue-50" />
-          <StatCard label="Major" value={String(teacherData.majorHead ?? "IT")} icon={<Users className="text-emerald-600" />} color="bg-emerald-50" />
-          <StatCard label="Phone" value={String(teacherData.phone ?? "N/A")} icon={<ClipboardCheck className="text-amber-600" />} color="bg-amber-50" />
+          <StatCard label="Major" value={String(teacherData.major ?? "IT")} icon={<Users className="text-emerald-600" />} color="bg-emerald-50" />
+          <StatCard label="Email" value={String(teacherData.user?.email ?? "—")} icon={<ClipboardCheck className="text-amber-600" />} color="bg-amber-50" />
           <StatCard label="Role" value={String(session.user.role ?? "")} icon={<Users className="text-teal-600" />} color="bg-teal-50" />
         </div>
 

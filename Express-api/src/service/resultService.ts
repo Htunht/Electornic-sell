@@ -154,6 +154,22 @@ export async function bulkUpsertResults(
   records: { studentId: string; marks: number }[],
   meta?: { semester?: number; academicYear?: string },
 ) {
+  const assignment = await assignmentRepo.findTeacherAssignment(
+    teacherId,
+    subjectId,
+    major,
+    year,
+  );
+  if (!assignment) {
+    throw new ServiceError(
+      403,
+      "Forbidden: you are not assigned to this subject for this class.",
+    );
+  }
+  if (assignment.canEdit === false) {
+    throw new ServiceError(403, "Forbidden: editing is disabled for this assignment.");
+  }
+
   const mapped = records.map((r) => ({
     ...r,
     grade: calculateGrade(r.marks).grade,

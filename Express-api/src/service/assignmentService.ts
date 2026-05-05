@@ -31,15 +31,40 @@ export async function assignTeacher(data: {
   year: AcademicYear;
   canEdit?: boolean;
 }) {
-  // Check for duplicate assignment
-  const existing = await assignmentRepo.findTeacherAssignment(
+  // Business rule: one teacher per subject per major/year.
+  // If an assignment exists for this class slot, override it (teacher acts as admin).
+  const existingClassSlot = await assignmentRepo.findAssignmentBySubjectClass(
+    data.subjectId,
+    data.major,
+    data.year,
+  );
+
+  if (existingClassSlot) {
+    if (existingClassSlot.teacherId === data.teacherId) {
+      throw new ServiceError(
+        409,
+        "Teacher is already assigned to this subject for this class.",
+      );
+    }
+
+    return assignmentRepo.updateAssignment(existingClassSlot.id, {
+      teacherId: data.teacherId,
+      canEdit: data.canEdit ?? existingClassSlot.canEdit,
+    });
+  }
+
+  // Also block duplicates for same teacher+subject+class (defensive; DB unique covers this too)
+  const existingTeacherSlot = await assignmentRepo.findTeacherAssignment(
     data.teacherId,
     data.subjectId,
     data.major,
     data.year,
   );
-  if (existing) {
-    throw new ServiceError(409, "Teacher is already assigned to this subject for this class.");
+  if (existingTeacherSlot) {
+    throw new ServiceError(
+      409,
+      "Teacher is already assigned to this subject for this class.",
+    );
   }
 
   return assignmentRepo.createAssignment(data);

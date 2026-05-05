@@ -6,10 +6,9 @@ import { ServiceError } from "../../service/userService";
 // GET /api/admin/subjects
 export async function listSubjects(req: AuthenticatedRequest, res: Response) {
   try {
-    const { isMinor, page, limit, search } = req.query;
+    const { page, limit, search } = req.query;
 
     const result = await subjectService.listSubjects({
-      isMinor: isMinor !== undefined ? isMinor === "true" : undefined,
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
       search: search as string | undefined,
@@ -34,19 +33,20 @@ export async function getSubject(req: AuthenticatedRequest, res: Response) {
 // POST /api/admin/subjects
 export async function createSubject(req: AuthenticatedRequest, res: Response) {
   try {
-    const { code, name, isMinor, creditHours } = req.body;
+    const { code, name, major, year, creditHours } = req.body;
 
-    if (!code || !name) {
+    if (!code || !name || !major || !year) {
       return res
         .status(400)
-        .json({ message: "code and name are required." });
+        .json({ message: "code, name, major, and year are required." });
     }
 
     const subject = await subjectService.createSubject({
       code,
       name,
-      isMinor,
-      creditHours,
+      major,
+      year,
+      creditHours: creditHours ? Number(creditHours) : undefined,
     });
 
     return res.status(201).json(subject);
@@ -58,13 +58,12 @@ export async function createSubject(req: AuthenticatedRequest, res: Response) {
 // PUT /api/admin/subjects/:id
 export async function updateSubject(req: AuthenticatedRequest, res: Response) {
   try {
-    const { code, name, isMinor, creditHours } = req.body;
+    const { code, name, creditHours } = req.body;
 
     const subject = await subjectService.updateSubject(req.params.id as string, {
       code,
       name,
-      isMinor,
-      creditHours,
+      creditHours: creditHours ? Number(creditHours) : undefined,
     });
 
     return res.json(subject);

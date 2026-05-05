@@ -34,20 +34,18 @@ export async function getTeacher(req: AuthenticatedRequest, res: Response) {
 // POST /api/admin/teachers
 export async function createTeacher(req: AuthenticatedRequest, res: Response) {
   try {
-    const { userId, name, phone, majorHead, minorDept } = req.body;
+    const { userId, major } = req.body;
 
-    if (!userId || !name) {
+    if (!userId || !major) {
       return res
         .status(400)
-        .json({ message: "userId and name are required." });
+        .json({ message: "userId and major are required." });
     }
 
     const teacher = await teacherService.createTeacher({
       userId,
-      name,
-      phone,
-      majorHead,
-      minorDept,
+      name: "Teacher",
+      major,
     });
 
     return res.status(201).json(teacher);
@@ -59,13 +57,10 @@ export async function createTeacher(req: AuthenticatedRequest, res: Response) {
 // PUT /api/admin/teachers/:id
 export async function updateTeacher(req: AuthenticatedRequest, res: Response) {
   try {
-    const { name, phone, majorHead, minorDept } = req.body;
+    const { major } = req.body;
 
     const teacher = await teacherService.updateTeacher(req.params.id as string, {
-      name,
-      phone,
-      majorHead,
-      minorDept,
+      major,
     });
 
     return res.json(teacher);
