@@ -47,10 +47,16 @@ router.put("/subjects/:id", subjectCtrl.updateSubject as any);
 router.delete("/subjects/:id", subjectCtrl.deleteSubject as any);
 
 // ─── Subject Assignments ──────────────────────────────────────────────────
-router.get("/assignments/teacher/:teacherId", assignmentCtrl.getTeacherAssignments as any);
+router.get(
+  "/assignments/teacher/:teacherId",
+  assignmentCtrl.getTeacherAssignments as any,
+);
 router.get("/assignments/class", assignmentCtrl.getClassAssignments as any);
 router.post("/assignments", assignmentCtrl.createAssignment as any);
-router.patch("/assignments/:id/toggle", assignmentCtrl.toggleEditPermission as any);
+router.patch(
+  "/assignments/:id/toggle",
+  assignmentCtrl.toggleEditPermission as any,
+);
 router.delete("/assignments/:id", assignmentCtrl.deleteAssignment as any);
 
 // ─── Results ──────────────────────────────────────────────────────────────
@@ -67,5 +73,13 @@ router.get("/calendar/:id", calendarCtrl.getEvent as any);
 router.post("/calendar", calendarCtrl.createEvent as any);
 router.put("/calendar/:id", calendarCtrl.updateEvent as any);
 router.delete("/calendar/:id", calendarCtrl.deleteEvent as any);
+
+// --- Teachers Section အောက်တွင် ထည့်ပါ ---
+
+// Attendance အတွက် (Classes Tab မှ ခေါ်ရန်)
+router.post("/teachers/bulk-attendance", teacherCtrl.saveBulkAttendance as any);
+
+// Marks အတွက် (Students Tab မှ ခေါ်ရန်)
+router.post("/teachers/update-marks", teacherCtrl.saveStudentMarks as any);
 
 export default router;

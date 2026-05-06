@@ -10,7 +10,7 @@ const app = express();
 // 1. CORS — must be first
 app.use(
   cors({
-    origin: "http://localhost:5174",
+    origin: "http://localhost:5175",
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
     credentials: true,
@@ -31,7 +31,7 @@ app.use((req, res, next) => {
 
 // 5. API Routes (Directly in app.ts for maximum reliability)
 app.use("/api/v1", apiRoutes);
-app.use("/api/admin", adminRoutes);
+app.use("/api/v1/admin", adminRoutes);
 
 // 6. Health check
 app.get("/", (req, res) => {

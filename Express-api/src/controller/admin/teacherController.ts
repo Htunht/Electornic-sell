@@ -97,3 +97,53 @@ function handleError(res: Response, error: unknown) {
   console.error("Controller error:", error);
   return res.status(500).json({ message: "Internal server error." });
 }
+
+/** POST /api/v1/admin/teachers/bulk-attendance */
+export async function saveBulkAttendance(
+  req: AuthenticatedRequest,
+  res: Response,
+) {
+  try {
+    const { subjectId, attendanceData } = req.body;
+
+    if (!subjectId || !attendanceData) {
+      return res
+        .status(400)
+        .json({ message: "subjectId and attendanceData are required." });
+    }
+
+    const result = await teacherService.saveAttendance(
+      subjectId,
+      attendanceData,
+    );
+    return res.json({ message: "Attendance saved successfully.", result });
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
+
+/** POST /api/v1/admin/teachers/update-marks */
+export async function saveStudentMarks(
+  req: AuthenticatedRequest,
+  res: Response,
+) {
+  try {
+    const { studentId, subjectId, marks } = req.body;
+
+    if (!studentId || !subjectId || marks === undefined) {
+      return res
+        .status(400)
+        .json({ message: "studentId, subjectId and marks are required." });
+    }
+
+    const result = await teacherService.updateStudentMarks(
+      studentId,
+      subjectId,
+      marks,
+      req.user.id,
+    );
+    return res.json({ message: "Marks updated successfully.", result });
+  } catch (error) {
+    return handleError(res, error);
+  }
+}

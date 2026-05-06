@@ -227,6 +227,31 @@ export async function bulkUpsertAttendance(
   }
 }
 
+export async function createSubject(req: AuthenticatedRequest, res: Response) {
+  try {
+    const teacher = await teacherService.getTeacherByUserId(req.user.id);
+    const { code, name, year, creditHours } = req.body;
+
+    if (!code || !name || !year) {
+      return res
+        .status(400)
+        .json({ message: "code, name, and year are required." });
+    }
+
+    const subject = await subjectService.createSubject({
+      code,
+      name,
+      major: teacher.major,
+      year,
+      creditHours: creditHours ? Number(creditHours) : undefined,
+    });
+
+    return res.status(201).json(subject);
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
+
 function handleError(res: Response, error: unknown) {
   if (error instanceof ServiceError) {
     return res.status(error.status).json({ message: error.message });

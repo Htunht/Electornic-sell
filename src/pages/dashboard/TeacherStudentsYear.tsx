@@ -3,10 +3,24 @@ import { Link, useNavigate, useParams } from "react-router";
 import { useSession } from "@/lib/auth-client";
 import { teacherApi } from "@/lib/api";
 import DashboardNav from "@/components/dashboard/DashboardNav";
-import { ChevronLeft, ChevronRight, GraduationCap, MapPin, Phone, Search, Users, ClipboardCheck, BookOpen } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  MapPin,
+  Phone,
+  Search,
+  Users,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const YEARS = ["YEAR_1", "YEAR_2", "YEAR_3", "YEAR_4", "YEAR_5", "YEAR_6"] as const;
+const YEARS = [
+  "YEAR_1",
+  "YEAR_2",
+  "YEAR_3",
+  "YEAR_4",
+  "YEAR_5",
+  "YEAR_6",
+] as const;
 type Year = (typeof YEARS)[number];
 
 function isYear(v: string | undefined): v is Year {
@@ -32,14 +46,19 @@ export default function TeacherStudentsYear() {
   const [subjects, setSubjects] = useState<any[]>([]);
   const [subjectId, setSubjectId] = useState<string>("");
   const [allYearSubjects, setAllYearSubjects] = useState<any[]>([]);
-  const [assignmentBySubjectId, setAssignmentBySubjectId] = useState<Record<string, any>>({});
+  const [assignmentBySubjectId, setAssignmentBySubjectId] = useState<
+    Record<string, any>
+  >({});
   const [arranging, setArranging] = useState(false);
-  const [entryDate, setEntryDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
-  const [marksByStudentId, setMarksByStudentId] = useState<Record<string, string>>({});
-  const [attendanceByStudentId, setAttendanceByStudentId] = useState<Record<string, "PRESENT" | "ABSENT" | "LATE" | "EXCUSED">>({});
-  const [savingResults, setSavingResults] = useState(false);
-  const [savingAttendance, setSavingAttendance] = useState(false);
+  const [entryDate, setEntryDate] = useState<string>(() =>
+    new Date().toISOString().slice(0, 10),
+  );
+  const [marksMatrix, setMarksMatrix] = useState<
+    Record<string, Record<string, string>>
+  >({});
+  const [savingRows, setSavingRows] = useState<Record<string, boolean>>({});
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [teacherProfile, setTeacherProfile] = useState<any>(null);
 
   useEffect(() => {
     if (!isPending) {
@@ -53,13 +72,19 @@ export default function TeacherStudentsYear() {
     async function loadSubjects() {
       if (!session) return;
       try {
-        const [asgnRes, subjRes] = await Promise.all([
+        const [asgnRes, subjRes, profileRes] = await Promise.all([
           teacherApi.getAssignments(),
           teacherApi.getSubjects({ year }),
+          teacherApi.getMe(),
         ]);
         if (cancelled) return;
-        const list = Array.isArray(asgnRes.data?.assignments) ? asgnRes.data.assignments : [];
-        const yearAssignments = list.filter((a: any) => String(a.year) === String(year));
+        setTeacherProfile(profileRes.data);
+        const list = Array.isArray(asgnRes.data?.assignments)
+          ? asgnRes.data.assignments
+          : [];
+        const yearAssignments = list.filter(
+          (a: any) => String(a.year) === String(year),
+        );
         setSubjects(yearAssignments);
         setAllYearSubjects(Array.isArray(subjRes.data) ? subjRes.data : []);
         setAssignmentBySubjectId(
@@ -91,8 +116,12 @@ export default function TeacherStudentsYear() {
         await teacherApi.createAssignment({ subjectId: sid, year });
       }
       const asgnRes = await teacherApi.getAssignments();
-      const list = Array.isArray(asgnRes.data?.assignments) ? asgnRes.data.assignments : [];
-      const yearAssignments = list.filter((a: any) => String(a.year) === String(year));
+      const list = Array.isArray(asgnRes.data?.assignments)
+        ? asgnRes.data.assignments
+        : [];
+      const yearAssignments = list.filter(
+        (a: any) => String(a.year) === String(year),
+      );
       setSubjects(yearAssignments);
       setAssignmentBySubjectId(
         yearAssignments.reduce((acc: Record<string, any>, a: any) => {
@@ -100,12 +129,18 @@ export default function TeacherStudentsYear() {
           return acc;
         }, {}),
       );
-      if (!yearAssignments.some((a: any) => String(a.subject?.id) === String(subjectId))) {
+      if (
+        !yearAssignments.some(
+          (a: any) => String(a.subject?.id) === String(subjectId),
+        )
+      ) {
         const nextId = yearAssignments[0]?.subject?.id;
         setSubjectId(nextId ? String(nextId) : "");
       }
     } catch (e: unknown) {
-      setSaveMsg(e instanceof Error ? e.message : "Failed to update assignment.");
+      setSaveMsg(
+        e instanceof Error ? e.message : "Failed to update assignment.",
+      );
     }
   }
 
@@ -145,67 +180,43 @@ export default function TeacherStudentsYear() {
 
   const yearLabel = useMemo(() => year.replace("_", " "), [year]);
 
-  async function saveResults() {
-    if (!subjectId) {
-      setSaveMsg("Select a subject first.");
-      return;
-    }
-    const records = students
-      .map((s) => {
-        const v = marksByStudentId[String(s.id)];
-        const marks = v === "" || v === undefined ? null : Number(v);
-        if (marks === null || Number.isNaN(marks)) return null;
-        return { studentId: String(s.id), marks };
-      })
-      .filter(Boolean) as { studentId: string; marks: number }[];
+  /** 
+   * TeacherStudentsYear.tsx ထဲတွင် ပြင်ရန်
+   * အရင်က assignment ကိုပဲ Filter လုပ်ထားတဲ့နေရာမှာ 
+   * အခု ဆရာ့ Major နဲ့တူတဲ့ ဘာသာရပ်အားလုံးကို ယူခိုင်းလိုက်ပါ
+   */
+  const displaySubjects = useMemo(() => {
+    if (!teacherProfile || !allYearSubjects) return [];
+    return allYearSubjects.filter(sub => sub.major === teacherProfile.major);
+  }, [allYearSubjects, teacherProfile]);
 
-    if (records.length === 0) {
-      setSaveMsg("No marks to save on this page.");
+  async function saveRow(studentId: string) {
+    const studentMarks = marksMatrix[studentId];
+    if (!studentMarks || Object.keys(studentMarks).length === 0) {
+      setSaveMsg("No marks entered for this student.");
       return;
     }
 
-    setSavingResults(true);
+    setSavingRows((prev) => ({ ...prev, [studentId]: true }));
     setSaveMsg(null);
     try {
-      await teacherApi.bulkUpsertResults({
-        subjectId,
-        year,
-        records,
-        semester: 1,
-        academicYear: "2025-2026",
+      // Save each subject's mark for this student
+      const promises = Object.entries(studentMarks).map(([sid, val]) => {
+        const marks = Number(val);
+        if (Number.isNaN(marks)) return Promise.resolve();
+        return teacherApi.saveStudentMarks({
+          studentId,
+          subjectId: sid,
+          marks,
+        });
       });
-      setSaveMsg("Results saved.");
-    } catch (e: unknown) {
-      setSaveMsg(e instanceof Error ? e.message : "Failed to save results.");
-    } finally {
-      setSavingResults(false);
-    }
-  }
 
-  async function saveAttendance() {
-    if (!subjectId) {
-      setSaveMsg("Select a subject first.");
-      return;
-    }
-    const records = students.map((s) => ({
-      studentId: String(s.id),
-      status: attendanceByStudentId[String(s.id)] ?? "PRESENT",
-    }));
-
-    setSavingAttendance(true);
-    setSaveMsg(null);
-    try {
-      await teacherApi.bulkUpsertAttendance({
-        subjectId,
-        year,
-        date: new Date(entryDate).toISOString(),
-        records,
-      });
-      setSaveMsg("Attendance saved.");
+      await Promise.all(promises);
+      setSaveMsg(`Marks updated for student.`);
     } catch (e: unknown) {
-      setSaveMsg(e instanceof Error ? e.message : "Failed to save attendance.");
+      setSaveMsg(e instanceof Error ? e.message : "Failed to save marks.");
     } finally {
-      setSavingAttendance(false);
+      setSavingRows((prev) => ({ ...prev, [studentId]: false }));
     }
   }
 
@@ -240,8 +251,12 @@ export default function TeacherStudentsYear() {
                 Teacher dashboard
               </button>
               <div>
-                <div className="text-xs text-slate-400 font-semibold uppercase tracking-widest">Students</div>
-                <div className="text-2xl font-bold text-slate-800">{yearLabel}</div>
+                <div className="text-xs text-slate-400 font-semibold uppercase tracking-widest">
+                  Students
+                </div>
+                <div className="text-2xl font-bold text-slate-800">
+                  {yearLabel}
+                </div>
               </div>
             </div>
 
@@ -280,66 +295,10 @@ export default function TeacherStudentsYear() {
           <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div className="flex items-start gap-3">
-                <div className="size-10 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-700">
-                  <BookOpen className="size-5" />
-                </div>
-                <div>
-                  <div className="font-bold text-slate-800">Manual Entry</div>
-                  <div className="text-xs text-slate-500">
-                    Enter marks & attendance for this year (page-by-page).
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-                <button
-                  onClick={() => setArranging((v) => !v)}
-                  className="h-10 inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  {arranging ? "Close arrange subjects" : "Arrange subjects"}
-                </button>
-                {/* Subject pills */}
-                <div className="flex gap-2 overflow-x-auto pb-1">
-                  {subjects.slice(0, 12).map((asgn) => (
-                    <button
-                      key={asgn.id}
-                      onClick={() => setSubjectId(String(asgn.subject?.id))}
-                      className={cn(
-                        "shrink-0 px-3 py-2 rounded-2xl border text-xs font-semibold transition-all",
-                        String(asgn.subject?.id) === subjectId
-                          ? "bg-emerald-600 text-white border-emerald-600 shadow-sm shadow-emerald-200"
-                          : "bg-white text-slate-700 border-slate-200 hover:bg-emerald-50 hover:border-emerald-200",
-                      )}
-                      title={asgn.subject?.name}
-                    >
-                      {asgn.subject?.code ?? "SUB"} · {String(asgn.subject?.name ?? "Subject").slice(0, 14)}
-                    </button>
-                  ))}
-                </div>
-
                 <div className="flex items-center gap-2">
-                  <input
-                    type="date"
-                    value={entryDate}
-                    onChange={(e) => setEntryDate(e.target.value)}
-                    className="h-10 rounded-2xl border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none focus:ring-4 focus:ring-emerald-200/60 focus:border-emerald-400"
-                  />
-                  <button
-                    onClick={saveResults}
-                    disabled={savingResults || !subjectId}
-                    className="h-10 inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm shadow-emerald-200 hover:bg-emerald-700 disabled:opacity-50 disabled:pointer-events-none"
-                  >
-                    <BookOpen className="size-4" />
-                    {savingResults ? "Saving…" : "Save marks"}
-                  </button>
-                  <button
-                    onClick={saveAttendance}
-                    disabled={savingAttendance || !subjectId}
-                    className="h-10 inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none"
-                  >
-                    <ClipboardCheck className="size-4 text-emerald-600" />
-                    {savingAttendance ? "Saving…" : "Save attendance"}
-                  </button>
+                  <p className="text-xs text-slate-400 font-medium italic">
+                    Enter marks in the table below and click save for each row.
+                  </p>
                 </div>
               </div>
             </div>
@@ -349,7 +308,7 @@ export default function TeacherStudentsYear() {
                   Subjects available for {yearLabel}
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {allYearSubjects.map((sub) => {
+                  {displaySubjects.map((sub) => {
                     const assigned = !!assignmentBySubjectId[String(sub.id)];
                     return (
                       <button
@@ -367,12 +326,15 @@ export default function TeacherStudentsYear() {
                       </button>
                     );
                   })}
-                  {allYearSubjects.length === 0 && (
-                    <div className="text-sm text-slate-500">No subjects found for this year.</div>
+                  {displaySubjects.length === 0 && (
+                    <div className="text-sm text-slate-500">
+                      No subjects found for your major this year.
+                    </div>
                   )}
                 </div>
                 <div className="mt-3 text-xs text-slate-500">
-                  Click a subject to assign/unassign it for yourself (1 teacher per subject per year).
+                  Click a subject to assign/unassign it for yourself (1 teacher
+                  per subject per year).
                 </div>
               </div>
             )}
@@ -400,96 +362,130 @@ export default function TeacherStudentsYear() {
               </div>
             )}
 
-            {/* Cards */}
-            <div className="p-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {!loading &&
-                students.map((s) => {
-                  const initial = String(s?.name ?? "S").slice(0, 1).toUpperCase();
-                  return (
-                    <div
-                      key={s.id}
-                      className="group rounded-3xl border border-slate-200/70 bg-linear-to-br from-white to-emerald-50/40 p-5 hover:shadow-md hover:shadow-emerald-100 transition-all"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="size-11 rounded-2xl bg-linear-to-br from-emerald-500 to-green-600 text-white font-bold flex items-center justify-center shadow-sm shrink-0">
-                            {initial}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="font-bold text-slate-800 truncate">{s.name}</div>
-                            <div className="text-xs text-slate-500 font-mono truncate">{s.rollNo}</div>
-                          </div>
-                        </div>
-                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full">
-                          {String(s.year ?? "").replace("_", " ")}
-                        </span>
-                      </div>
-
-                      <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-slate-600">
-                        <div className="flex items-center gap-2">
-                          <GraduationCap className="size-4 text-emerald-600" />
-                          <span className="truncate">{s.major}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Phone className="size-4 text-emerald-600" />
-                          <span className="truncate">{s.phoneNumber ?? "—"}</span>
-                        </div>
-                        <div className="col-span-2 flex items-center gap-2">
-                          <MapPin className="size-4 text-emerald-600" />
-                          <span className="truncate">{s.address ?? "—"}</span>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 grid grid-cols-2 gap-3">
-                        <div>
-                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-                            Marks
-                          </div>
-                          <input
-                            inputMode="numeric"
-                            value={marksByStudentId[String(s.id)] ?? ""}
-                            onChange={(e) =>
-                              setMarksByStudentId((prev) => ({
-                                ...prev,
-                                [String(s.id)]: e.target.value.replace(/[^\d.]/g, "").slice(0, 5),
-                              }))
-                            }
-                            placeholder="0-100"
-                            className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none focus:ring-4 focus:ring-emerald-200/60 focus:border-emerald-400"
-                          />
-                        </div>
-                        <div>
-                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-                            Attendance
-                          </div>
-                          <select
-                            value={attendanceByStudentId[String(s.id)] ?? "PRESENT"}
-                            onChange={(e) =>
-                              setAttendanceByStudentId((prev) => ({
-                                ...prev,
-                                [String(s.id)]: e.target.value as any,
-                              }))
-                            }
-                            className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none focus:ring-4 focus:ring-emerald-200/60 focus:border-emerald-400"
+            {/* Bulk Entry Table */}
+            <div className="p-0 overflow-x-auto">
+              <div className="min-w-full inline-block align-middle">
+                <div className="overflow-hidden">
+                  <table className="min-w-full divide-y divide-slate-100 border-collapse">
+                    <thead>
+                      <tr className="bg-linear-to-r from-emerald-600/90 to-green-600/90 text-white">
+                        <th className="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-widest">
+                          Student Info
+                        </th>
+                        <th className="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-widest">
+                          Contact & Location
+                        </th>
+                        {displaySubjects.map((sub) => (
+                          <th
+                            key={sub.id}
+                            className="px-6 py-4 text-center text-[10px] font-bold uppercase tracking-widest min-w-[120px]"
                           >
-                            <option value="PRESENT">Present</option>
-                            <option value="ABSENT">Absent</option>
-                            <option value="LATE">Late</option>
-                            <option value="EXCUSED">Excused</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-
-              {!loading && students.length === 0 && (
-                <div className="col-span-full py-12 text-center text-slate-400">
-                  <Users size={44} className="mx-auto mb-3 opacity-20" />
-                  <p>No students found.</p>
+                            <div className="flex flex-col items-center">
+                              <span className="text-white/80 text-[8px]">
+                                {sub.code}
+                              </span>
+                              <span className="truncate max-w-[100px]">
+                                {sub.name}
+                              </span>
+                            </div>
+                          </th>
+                        ))}
+                        <th className="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-widest sticky right-0 bg-emerald-600/90 backdrop-blur-md">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white/40">
+                      {!loading &&
+                        students.map((s) => {
+                          const initial = String(s?.name ?? "S")
+                            .slice(0, 1)
+                            .toUpperCase();
+                          return (
+                            <tr
+                              key={s.id}
+                              className="hover:bg-emerald-50/30 transition-colors group"
+                            >
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex items-center gap-3">
+                                  <div className="size-9 rounded-xl bg-linear-to-br from-emerald-500 to-green-600 text-white font-bold flex items-center justify-center text-xs shadow-sm">
+                                    {initial}
+                                  </div>
+                                  <div>
+                                    <div className="text-sm font-bold text-slate-800">
+                                      {s.name}
+                                    </div>
+                                    <div className="text-[10px] font-mono text-slate-400">
+                                      {s.rollNo}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                                    <Phone className="size-3 text-emerald-500" />
+                                    {s.phoneNumber ?? "—"}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                                    <MapPin className="size-3 text-emerald-500" />
+                                    {s.address ?? "—"}
+                                  </div>
+                                </div>
+                              </td>
+                              {displaySubjects.map((sub) => {
+                                const sid = String(sub.id);
+                                return (
+                                  <td
+                                    key={sub.id}
+                                    className="px-6 py-4 whitespace-nowrap"
+                                  >
+                                    <input
+                                      inputMode="numeric"
+                                      value={
+                                        marksMatrix[String(s.id)]?.[sid] ?? ""
+                                      }
+                                      onChange={(e) =>
+                                        setMarksMatrix((prev) => ({
+                                          ...prev,
+                                          [String(s.id)]: {
+                                            ...(prev[String(s.id)] || {}),
+                                            [sid]: e.target.value
+                                              .replace(/[^\d.]/g, "")
+                                              .slice(0, 5),
+                                          },
+                                        }))
+                                      }
+                                      placeholder="0"
+                                      className="h-9 w-16 mx-auto block rounded-lg border border-slate-200/60 bg-white/80 px-2 text-center text-sm shadow-sm outline-none focus:ring-4 focus:ring-emerald-200/40 focus:border-emerald-400 transition-all"
+                                    />
+                                  </td>
+                                );
+                              })}
+                              <td className="px-6 py-4 whitespace-nowrap text-right sticky right-0 bg-white/80 backdrop-blur-md group-hover:bg-emerald-50/80 transition-colors">
+                                <button
+                                  onClick={() => saveRow(String(s.id))}
+                                  disabled={savingRows[String(s.id)]}
+                                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-emerald-200 hover:bg-emerald-700 disabled:opacity-50 transition-all"
+                                >
+                                  {savingRows[String(s.id)] ? "…" : "Save"}
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
                 </div>
-              )}
+              </div>
             </div>
+
+            {!loading && students.length === 0 && (
+              <div className="col-span-full py-12 text-center text-slate-400">
+                <Users size={44} className="mx-auto mb-3 opacity-20" />
+                <p>No students found.</p>
+              </div>
+            )}
 
             {/* Pagination */}
             <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-4 flex-wrap">
@@ -521,4 +517,3 @@ export default function TeacherStudentsYear() {
     </div>
   );
 }
-

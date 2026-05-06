@@ -63,3 +63,30 @@ export async function removeTeacher(id: string) {
   await getTeacherById(id);
   return teacherRepo.deleteTeacher(id);
 }
+
+// express-api/src/service/teacherService.ts
+
+/** ဘာသာရပ်အလိုက် Attendance သိမ်းရန် */
+export async function saveAttendance(subjectId: string, attendanceData: any[]) {
+  // လိုအပ်သော logic စစ်ဆေးမှုများ ဤနေရာတွင် ပြုလုပ်နိုင်သည်
+  return teacherRepo.bulkUpdateAttendance(subjectId, attendanceData);
+}
+
+/** ကျောင်းသားအလိုက် အမှတ်သိမ်းရန် */
+export async function updateStudentMarks(
+  studentId: string,
+  subjectId: string,
+  marks: number,
+  userId: string,
+) {
+  if (marks < 0 || marks > 100) {
+    throw new ServiceError(400, "Marks must be between 0 and 100.");
+  }
+  const teacher = await getTeacherByUserId(userId);
+  return teacherRepo.upsertStudentMarks(
+    studentId,
+    subjectId,
+    marks,
+    teacher.id,
+  );
+}

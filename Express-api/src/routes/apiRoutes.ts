@@ -94,6 +94,12 @@ router.post(
   requireRole("TEACHER"),
   teacherController.bulkUpsertAttendance as unknown as RequestHandler,
 );
+router.post(
+  "/teachers/subjects",
+  authGuard,
+  requireRole("TEACHER"),
+  teacherController.createSubject as unknown as RequestHandler,
+);
 
 // ---------------------------------------------------------------------------
 // Calendar APIs

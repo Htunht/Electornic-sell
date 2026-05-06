@@ -13,15 +13,35 @@ export const teacherApi = {
   getMe: () => api.get("/teachers/me"),
   getAssignments: () => api.get("/teachers/me/assignments"),
   getSubjects: (params?: { year?: string }) => api.get("/teachers/me/subjects", { params }),
+  
   createAssignment: (data: { subjectId: string; year: string; canEdit?: boolean }) =>
     api.post("/teachers/me/assignments", data),
-  deleteAssignment: (id: string) => api.delete(`/teachers/me/assignments/${id}`),
+  
+  deleteAssignment: (id: string) => 
+    api.delete(`/teachers/me/assignments/${id}`),
+
   getStudents: (params?: { year?: string; search?: string; page?: number; limit?: number }) =>
     api.get("/teachers/students", { params }),
-  bulkUpsertResults: (data: { subjectId: string; year: string; semester?: number; academicYear?: string; records: { studentId: string; marks: number }[] }) =>
+
+  createSubject: (data: { code: string; name: string; year: string; creditHours?: number }) =>
+    api.post("/teachers/subjects", data),
+
+  /** Classes Tab: Attendance handled by subject */
+  saveBulkAttendance: (data: {
+    subjectId: string;
+    attendanceData: { studentId: string; status: string; date: string }[];
+  }) => api.post("/admin/teachers/bulk-attendance", data),
+
+  /** Students Tab: Marks handled per student */
+  saveStudentMarks: (data: {
+    studentId: string;
+    subjectId: string;
+    marks: number;
+  }) => api.post("/admin/teachers/update-marks", data),
+
+  // Keep compatibility for bulk results if needed
+  bulkUpsertResults: (data: any) => 
     api.post("/teachers/results/bulk", data),
-  bulkUpsertAttendance: (data: { subjectId: string; year: string; date: string; records: { studentId: string; status: string }[] }) =>
-    api.post("/teachers/attendance/bulk", data),
 };
 
 export const calendarApi = {

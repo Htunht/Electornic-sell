@@ -21,6 +21,9 @@ export default function TeacherDashboard() {
   const [teacherData, setTeacherData] = useState<any>(null);
   const [assignments, setAssignments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showSubjectModal, setShowSubjectModal] = useState(false);
+  const [newSubject, setNewSubject] = useState({ code: "", name: "", year: "YEAR_1", creditHours: 3 });
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     if (!isPending) {
@@ -32,25 +35,42 @@ export default function TeacherDashboard() {
     }
   }, [session, isPending, navigate]);
 
+  const fetchData = async () => {
+    try {
+      const [profileRes, assignmentsRes] = await Promise.all([
+        teacherApi.getMe(),
+        teacherApi.getAssignments(),
+      ]);
+      setTeacherData(profileRes.data);
+      setAssignments(assignmentsRes.data?.assignments ?? []);
+    } catch (error) {
+      console.error("Error fetching teacher data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (session) {
-      const fetchData = async () => {
-        try {
-          const [profileRes, assignmentsRes] = await Promise.all([
-            teacherApi.getMe(),
-            teacherApi.getAssignments(),
-          ]);
-          setTeacherData(profileRes.data);
-          setAssignments(assignmentsRes.data?.assignments ?? []);
-        } catch (error) {
-          console.error("Error fetching teacher data:", error);
-        } finally {
-          setLoading(false);
-        }
-      };
       fetchData();
     }
   }, [session]);
+
+  const handleCreateSubject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreating(true);
+    try {
+      await teacherApi.createSubject(newSubject);
+      setShowSubjectModal(false);
+      setNewSubject({ code: "", name: "", year: "YEAR_1", creditHours: 3 });
+      await fetchData(); // Refresh
+    } catch (error) {
+      console.error("Error creating subject:", error);
+      alert("Failed to create subject.");
+    } finally {
+      setCreating(false);
+    }
+  };
 
   if (isPending || loading) {
     return (
@@ -82,8 +102,11 @@ export default function TeacherDashboard() {
             <p className="text-slate-500 mt-1">Major: {String(teacherData.major ?? "—")}</p>
           </div>
           <div className="flex gap-3">
-            <button className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition-all font-medium text-sm">
-              <PlusCircle size={18} /> Mark Attendance
+            <button 
+              onClick={() => setShowSubjectModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition-all font-medium text-sm"
+            >
+              <PlusCircle size={18} /> Add Subject
             </button>
             <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-all font-medium text-sm">
               <FileSpreadsheet size={18} /> Export Reports
@@ -193,6 +216,81 @@ export default function TeacherDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Create Subject Modal */}
+      {showSubjectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 animate-in fade-in zoom-in duration-200">
+            <div className="px-6 py-4 bg-linear-to-r from-emerald-600 to-green-600 text-white flex justify-between items-center">
+              <h2 className="font-bold text-lg">Create New Subject</h2>
+              <button onClick={() => setShowSubjectModal(false)} className="text-white/80 hover:text-white transition-colors">✕</button>
+            </div>
+            <form onSubmit={handleCreateSubject} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Subject Code</label>
+                <input 
+                  required
+                  placeholder="e.g. IT-3101"
+                  value={newSubject.code}
+                  onChange={e => setNewSubject({...newSubject, code: e.target.value})}
+                  className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm focus:ring-4 focus:ring-emerald-100 focus:border-emerald-400 outline-none transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Subject Name</label>
+                <input 
+                  required
+                  placeholder="e.g. Data Structures"
+                  value={newSubject.name}
+                  onChange={e => setNewSubject({...newSubject, name: e.target.value})}
+                  className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm focus:ring-4 focus:ring-emerald-100 focus:border-emerald-400 outline-none transition-all"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Academic Year</label>
+                  <select 
+                    value={newSubject.year}
+                    onChange={e => setNewSubject({...newSubject, year: e.target.value})}
+                    className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm focus:ring-4 focus:ring-emerald-100 focus:border-emerald-400 outline-none transition-all"
+                  >
+                    {["YEAR_1","YEAR_2","YEAR_3","YEAR_4","YEAR_5","YEAR_6"].map(y => (
+                      <option key={y} value={y}>{y.replace("_", " ")}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Credit Hours</label>
+                  <input 
+                    type="number"
+                    min="1"
+                    max="6"
+                    value={newSubject.creditHours}
+                    onChange={e => setNewSubject({...newSubject, creditHours: Number(e.target.value)})}
+                    className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm focus:ring-4 focus:ring-emerald-100 focus:border-emerald-400 outline-none transition-all"
+                  />
+                </div>
+              </div>
+              <div className="pt-4 flex gap-3">
+                <button 
+                  type="button"
+                  onClick={() => setShowSubjectModal(false)}
+                  className="flex-1 h-11 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  disabled={creating}
+                  className="flex-1 h-11 rounded-xl bg-emerald-600 text-white font-bold text-sm shadow-lg shadow-emerald-100 hover:bg-emerald-700 disabled:opacity-50 transition-all"
+                >
+                  {creating ? "Creating…" : "Save Subject"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

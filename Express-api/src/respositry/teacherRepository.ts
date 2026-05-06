@@ -1,5 +1,6 @@
 import prisma from "../lib/prisma";
 import { Major, Prisma } from "@prisma/client";
+import { calculateGrade } from "../service/resultService";
 
 // ---------------------------------------------------------------------------
 // Queries
@@ -8,10 +9,10 @@ import { Major, Prisma } from "@prisma/client";
 export async function findTeacherById(id: string) {
   return prisma.teacher.findUnique({
     where: { id },
-    include: { 
-      user: true, 
-      questionPapers: true, 
-      results: true 
+    include: {
+      user: true,
+      questionPapers: true,
+      results: true,
     },
   });
 }
@@ -81,7 +82,10 @@ export async function createTeacher(data: {
   phone?: string;
   major: Major;
 }) {
-  return prisma.teacher.create({ data: { userId: data.userId, major: data.major }, include: { user: true } });
+  return prisma.teacher.create({
+    data: { userId: data.userId, major: data.major },
+    include: { user: true },
+  });
 }
 
 export async function updateTeacher(
@@ -97,4 +101,72 @@ export async function updateTeacher(
 
 export async function deleteTeacher(id: string) {
   return prisma.teacher.delete({ where: { id } });
+}
+// express-api/src/respositry/teacherRepository.ts
+
+/** Classes Tab မှ ဘာသာရပ်အလိုက် ကျောင်းခေါ်ချိန်ကို အစုလိုက်သိမ်းရန် */
+export async function bulkUpdateAttendance(subjectId: string, data: any[]) {
+  return prisma.$transaction(
+    data.map((item) =>
+      prisma.attendance.upsert({
+        where: {
+          studentId_subjectId_date: {
+            studentId: item.studentId,
+            subjectId: subjectId,
+            date: item.date,
+          },
+        },
+        update: { status: item.status },
+        create: {
+          studentId: item.studentId,
+          subjectId: subjectId,
+          status: item.status,
+          date: item.date,
+        },
+      }),
+    ),
+  );
+}
+
+/** Students Tab မှ ကျောင်းသားတစ်ဦးချင်းစီအတွက် အမှတ်ကို သိမ်းရန် */
+export async function upsertStudentMarks(
+  studentId: string,
+  subjectId: string,
+  marks: number,
+  teacherId: string,
+) {
+  // Fetch student and subject for denormalized fields (major, year)
+  const [student, subject] = await Promise.all([
+    prisma.student.findUnique({ where: { id: studentId } }),
+    prisma.subject.findUnique({ where: { id: subjectId } }),
+  ]);
+
+  if (!student || !subject) {
+    throw new Error("Student or Subject not found.");
+  }
+
+  const { grade } = calculateGrade(marks);
+
+  return prisma.result.upsert({
+    where: {
+      studentId_subjectId: {
+        studentId: studentId,
+        subjectId: subjectId,
+      },
+    },
+    update: {
+      marks: marks,
+      grade: grade,
+      teacherId: teacherId,
+    },
+    create: {
+      studentId: studentId,
+      subjectId: subjectId,
+      marks: marks,
+      grade: grade,
+      teacherId: teacherId,
+      major: student.major,
+      year: student.year,
+    },
+  });
 }
