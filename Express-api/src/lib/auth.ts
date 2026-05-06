@@ -18,7 +18,7 @@ export const auth = betterAuth({
     emailOTP({
       // emailOTP plugin မှာ Link ပို့ချင်ရင်လည်း sendVerificationOTP ကိုပဲ သုံးရပါတယ်
       async sendVerificationOTP({ email, otp, type }) {
-        const resetLink = `http://localhost:5174/reset-password?token=${otp}&email=${email}`;
+        const resetLink = `http://localhost:5175/reset-password?token=${otp}&email=${email}`;
         if (type === "forget-password") {
           const htmlContent = getResetPasswordEmailHtml(email, resetLink);
           // Password Reset အတွက် Link (URL) ကို ပို့ပေးမည့်အပိုင်း
@@ -50,5 +50,5 @@ export const auth = betterAuth({
       prompt: "select_account",
         }, 
   },
-  trustedOrigins: ["http://localhost:5174"],
+  trustedOrigins: ["http://localhost:5175"],
 });

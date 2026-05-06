@@ -2,7 +2,7 @@ import { createAuthClient } from "better-auth/react";
 import { emailOTPClient, adminClient } from "better-auth/client/plugins"
 
 export const authClient = createAuthClient({
-  baseURL: "http://localhost:8081",
+  baseURL: "http://localhost:8085",
   fetchOptions: {
     credentials: "include",
   },

@@ -71,7 +71,7 @@ export function LoginForm({
     try {
       await signIn.social({
         provider: "google",
-        callbackURL: "http://localhost:5174",
+        callbackURL: "http://localhost:5175",
       });
     } catch (err: unknown) {
       console.log(err);

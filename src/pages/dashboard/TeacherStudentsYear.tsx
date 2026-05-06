@@ -57,6 +57,7 @@ export default function TeacherStudentsYear() {
     Record<string, Record<string, string>>
   >({});
   const [savingRows, setSavingRows] = useState<Record<string, boolean>>({});
+  const [savedRows, setSavedRows] = useState<Record<string, boolean>>({});
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [teacherProfile, setTeacherProfile] = useState<any>(null);
 
@@ -178,6 +179,30 @@ export default function TeacherStudentsYear() {
     };
   }, [session, year, search, page, limit]);
 
+  useEffect(() => {
+    if (students && students.length > 0) {
+      const initialMatrix: Record<string, Record<string, string>> = {};
+      const initialSaved: Record<string, boolean> = {};
+
+      students.forEach((student) => {
+        const studentId = String(student.id);
+        initialMatrix[studentId] = {};
+        
+        // If student has any results, mark the row as initially saved
+        if (student.results && student.results.length > 0) {
+          initialSaved[studentId] = true;
+        }
+
+        student.results?.forEach((res: any) => {
+          initialMatrix[studentId][String(res.subjectId)] = String(res.marks);
+        });
+      });
+
+      setMarksMatrix(initialMatrix);
+      setSavedRows(initialSaved);
+    }
+  }, [students]);
+
   const yearLabel = useMemo(() => year.replace("_", " "), [year]);
 
   /** 
@@ -213,6 +238,7 @@ export default function TeacherStudentsYear() {
 
       await Promise.all(promises);
       setSaveMsg(`Marks updated for student.`);
+      setSavedRows((prev) => ({ ...prev, [studentId]: true }));
     } catch (e: unknown) {
       setSaveMsg(e instanceof Error ? e.message : "Failed to save marks.");
     } finally {
@@ -445,17 +471,28 @@ export default function TeacherStudentsYear() {
                                       value={
                                         marksMatrix[String(s.id)]?.[sid] ?? ""
                                       }
-                                      onChange={(e) =>
+                                      onChange={(e) => {
+                                        const newVal = e.target.value
+                                          .replace(/[^\d.]/g, "")
+                                          .slice(0, 5);
+                                        
+                                        // Update Matrix
                                         setMarksMatrix((prev) => ({
                                           ...prev,
                                           [String(s.id)]: {
                                             ...(prev[String(s.id)] || {}),
-                                            [sid]: e.target.value
-                                              .replace(/[^\d.]/g, "")
-                                              .slice(0, 5),
+                                            [sid]: newVal,
                                           },
-                                        }))
-                                      }
+                                        }));
+
+                                        // Smart Reset: Revert 'Saved' status if mark is changed
+                                        if (savedRows[String(s.id)]) {
+                                          setSavedRows((prev) => ({
+                                            ...prev,
+                                            [String(s.id)]: false,
+                                          }));
+                                        }
+                                      }}
                                       placeholder="0"
                                       className="h-9 w-16 mx-auto block rounded-lg border border-slate-200/60 bg-white/80 px-2 text-center text-sm shadow-sm outline-none focus:ring-4 focus:ring-emerald-200/40 focus:border-emerald-400 transition-all"
                                     />
@@ -463,13 +500,26 @@ export default function TeacherStudentsYear() {
                                 );
                               })}
                               <td className="px-6 py-4 whitespace-nowrap text-right sticky right-0 bg-white/80 backdrop-blur-md group-hover:bg-emerald-50/80 transition-colors">
-                                <button
-                                  onClick={() => saveRow(String(s.id))}
-                                  disabled={savingRows[String(s.id)]}
-                                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-emerald-200 hover:bg-emerald-700 disabled:opacity-50 transition-all"
-                                >
-                                  {savingRows[String(s.id)] ? "…" : "Save"}
-                                </button>
+                                {(() => {
+                                  const isSaving = savingRows[String(s.id)];
+                                  const isSaved = savedRows[String(s.id)];
+                                  return (
+                                    <button
+                                      onClick={() => saveRow(String(s.id))}
+                                      disabled={isSaving}
+                                      className={cn(
+                                        "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-md transition-all",
+                                        isSaved
+                                          ? "bg-blue-600 shadow-blue-200 hover:bg-blue-700"
+                                          : isSaving
+                                            ? "bg-slate-400 shadow-slate-200 opacity-70"
+                                            : "bg-emerald-600 shadow-emerald-200 hover:bg-emerald-700",
+                                      )}
+                                    >
+                                      {isSaving ? "…" : isSaved ? "Saved ✓" : "Save"}
+                                    </button>
+                                  );
+                                })()}
                               </td>
                             </tr>
                           );

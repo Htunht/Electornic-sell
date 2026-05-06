@@ -48,7 +48,7 @@ export async function findAllStudents(params?: {
   const [students, total] = await Promise.all([
     prisma.student.findMany({
       where,
-      include: { user: true },
+      include: { user: true, results: true },
       skip: (page - 1) * limit,
       take: limit,
       orderBy: { rollNo: "asc" },
