@@ -63,6 +63,7 @@ export async function createSubject(data: {
   name: string;
   major: Major;
   year: AcademicYear;
+  semester?: number;
   creditHours?: number;
 }) {
   return prisma.subject.create({
@@ -71,6 +72,7 @@ export async function createSubject(data: {
       name: data.name,
       major: data.major,
       year: data.year,
+      semester: data.semester ?? 1,
       creditHours: data.creditHours ?? 3,
     },
   });

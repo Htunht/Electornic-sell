@@ -23,8 +23,12 @@ export const teacherApi = {
   getStudents: (params?: { year?: string; search?: string; page?: number; limit?: number }) =>
     api.get("/teachers/students", { params }),
 
-  createSubject: (data: { code: string; name: string; year: string; creditHours?: number }) =>
+  createSubject: (data: { code: string; name: string; year: string; semester?: number; creditHours?: number }) =>
     api.post("/teachers/subjects", data),
+  updateSubject: (id: string, data: { code?: string; name?: string; creditHours?: number; year?: string; semester?: number }) =>
+    api.put(`/teachers/subjects/${id}`, data),
+  deleteSubject: (id: string) =>
+    api.delete(`/teachers/subjects/${id}`),
 
   /** Classes Tab: Attendance handled by subject */
   saveBulkAttendance: (data: {

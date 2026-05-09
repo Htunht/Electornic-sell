@@ -67,9 +67,9 @@ export async function removeTeacher(id: string) {
 // express-api/src/service/teacherService.ts
 
 /** ဘာသာရပ်အလိုက် Attendance သိမ်းရန် */
-export async function saveAttendance(subjectId: string, attendanceData: any[]) {
-  // လိုအပ်သော logic စစ်ဆေးမှုများ ဤနေရာတွင် ပြုလုပ်နိုင်သည်
-  return teacherRepo.bulkUpdateAttendance(subjectId, attendanceData);
+export async function saveAttendance(subjectId: string, attendanceData: any[], userId: string) {
+  const teacher = await getTeacherByUserId(userId);
+  return teacherRepo.bulkUpdateAttendance(subjectId, attendanceData, teacher.id);
 }
 
 /** ကျောင်းသားအလိုက် အမှတ်သိမ်းရန် */

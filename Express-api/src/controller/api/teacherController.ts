@@ -76,6 +76,7 @@ export async function getMySubjects(req: AuthenticatedRequest, res: Response) {
       ? subjects.filter((s: any) => String(s.year) === String(year))
       : subjects;
 
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     return res.json(filtered);
   } catch (error) {
     return handleError(res, error);
@@ -230,7 +231,7 @@ export async function bulkUpsertAttendance(
 export async function createSubject(req: AuthenticatedRequest, res: Response) {
   try {
     const teacher = await teacherService.getTeacherByUserId(req.user.id);
-    const { code, name, year, creditHours } = req.body;
+    const { code, name, year, semester, creditHours } = req.body;
 
     if (!code || !name || !year) {
       return res
@@ -243,10 +244,54 @@ export async function createSubject(req: AuthenticatedRequest, res: Response) {
       name,
       major: teacher.major,
       year,
+      semester: semester ? Number(semester) : 1,
       creditHours: creditHours ? Number(creditHours) : undefined,
     });
 
     return res.status(201).json(subject);
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
+
+export async function updateSubject(req: AuthenticatedRequest, res: Response) {
+  try {
+    const teacher = await teacherService.getTeacherByUserId(req.user.id);
+    const id = req.params.id as string;
+    const { code, name, creditHours, year, semester } = req.body;
+
+    // Verify it belongs to teacher's major before updating
+    const existing = await subjectService.getSubjectById(id);
+    if (existing.major !== teacher.major) {
+      return res.status(403).json({ message: "Forbidden: subject is outside your major." });
+    }
+
+    const subject = await subjectService.updateSubject(id, {
+      code,
+      name,
+      year,
+      semester: semester !== undefined ? Number(semester) : undefined,
+      creditHours: creditHours ? Number(creditHours) : undefined,
+    });
+
+    return res.json(subject);
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
+
+export async function deleteSubject(req: AuthenticatedRequest, res: Response) {
+  try {
+    const teacher = await teacherService.getTeacherByUserId(req.user.id);
+    const id = req.params.id as string;
+
+    const existing = await subjectService.getSubjectById(id);
+    if (existing.major !== teacher.major) {
+      return res.status(403).json({ message: "Forbidden: subject is outside your major." });
+    }
+
+    await subjectService.removeSubject(id);
+    return res.json({ message: "Subject removed successfully." });
   } catch (error) {
     return handleError(res, error);
   }

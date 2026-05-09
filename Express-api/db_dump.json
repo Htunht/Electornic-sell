@@ -1,0 +1,192 @@
+{
+  "subjects": [
+    {
+      "id": "cmotnj1wa000cbcvch22y8y1k",
+      "code": "IT-6101",
+      "name": "Cloud Computing",
+      "major": "IT",
+      "year": "YEAR_6",
+      "creditHours": 3
+    },
+    {
+      "id": "cmotnj1w9000abcvcsg3v3yae",
+      "code": "IT-5101",
+      "name": "Web Development",
+      "major": "IT",
+      "year": "YEAR_5",
+      "creditHours": 3
+    },
+    {
+      "id": "cmotnj1w40005bcvcgzvqmyq0",
+      "code": "IT-2102",
+      "name": "Computer Organization",
+      "major": "IT",
+      "year": "YEAR_2",
+      "creditHours": 3
+    },
+    {
+      "id": "cmotnj1w60007bcvc9786usr0",
+      "code": "IT-3102",
+      "name": "Operating Systems",
+      "major": "IT",
+      "year": "YEAR_3",
+      "creditHours": 3
+    },
+    {
+      "id": "cmotnj1w70008bcvc7x72wu8y",
+      "code": "IT-4101",
+      "name": "Software Engineering",
+      "major": "IT",
+      "year": "YEAR_4",
+      "creditHours": 3
+    },
+    {
+      "id": "cmotnj1w60006bcvc7vjbvoz8",
+      "code": "IT-3101",
+      "name": "Database Systems",
+      "major": "IT",
+      "year": "YEAR_3",
+      "creditHours": 3
+    },
+    {
+      "id": "cmotnj1w80009bcvc4jrpl7uu",
+      "code": "IT-4102",
+      "name": "Computer Networks",
+      "major": "IT",
+      "year": "YEAR_4",
+      "creditHours": 3
+    },
+    {
+      "id": "cmotnj1w40004bcvctcmbju51",
+      "code": "IT-2101",
+      "name": "Data Structures",
+      "major": "IT",
+      "year": "YEAR_2",
+      "creditHours": 3
+    },
+    {
+      "id": "cmotnj1wa000dbcvcwto382zv",
+      "code": "IT-6102",
+      "name": "Information Security",
+      "major": "IT",
+      "year": "YEAR_6",
+      "creditHours": 3
+    },
+    {
+      "id": "cmotnj1w9000bbcvc97jpvwjm",
+      "code": "IT-5102",
+      "name": "Machine Learning",
+      "major": "IT",
+      "year": "YEAR_5",
+      "creditHours": 3
+    },
+    {
+      "id": "cmov2h0pk000038vcgl5xvaoc",
+      "code": "IT-20101",
+      "name": "BEE",
+      "major": "IT",
+      "year": "YEAR_2",
+      "creditHours": 3
+    },
+    {
+      "id": "cmotnj1w20003bcvc3tyt2mt2",
+      "code": "IT-1102",
+      "name": "Discrete Mathematics",
+      "major": "IT",
+      "year": "YEAR_1",
+      "creditHours": 3
+    }
+  ],
+  "assignments": [
+    {
+      "id": "cmotnj98q001sbcvcuqdet3aa",
+      "teacherId": "cmotnj1r50001bcvchovd0k6s",
+      "subjectId": "cmotnj1w40004bcvctcmbju51",
+      "major": "IT",
+      "year": "YEAR_2",
+      "canEdit": true,
+      "createdAt": "2026-05-06T06:03:54.891Z",
+      "updatedAt": "2026-05-06T06:03:54.891Z"
+    },
+    {
+      "id": "cmotnj9rn001wbcvcvs8ivwxt",
+      "teacherId": "cmotnj1r50001bcvchovd0k6s",
+      "subjectId": "cmotnj1w70008bcvc7x72wu8y",
+      "major": "IT",
+      "year": "YEAR_4",
+      "canEdit": true,
+      "createdAt": "2026-05-06T06:03:55.571Z",
+      "updatedAt": "2026-05-06T06:03:55.571Z"
+    },
+    {
+      "id": "cmotnj9xk001xbcvcfy2o8df9",
+      "teacherId": "cmotnj1r50001bcvchovd0k6s",
+      "subjectId": "cmotnj1w80009bcvc4jrpl7uu",
+      "major": "IT",
+      "year": "YEAR_4",
+      "canEdit": true,
+      "createdAt": "2026-05-06T06:03:55.784Z",
+      "updatedAt": "2026-05-06T06:03:55.784Z"
+    },
+    {
+      "id": "cmotnja4c001ybcvc5duxbe3m",
+      "teacherId": "cmotnj1r50001bcvchovd0k6s",
+      "subjectId": "cmotnj1w9000abcvcsg3v3yae",
+      "major": "IT",
+      "year": "YEAR_5",
+      "canEdit": true,
+      "createdAt": "2026-05-06T06:03:56.028Z",
+      "updatedAt": "2026-05-06T06:03:56.028Z"
+    },
+    {
+      "id": "cmotnja7v001zbcvcb07arklq",
+      "teacherId": "cmotnj1r50001bcvchovd0k6s",
+      "subjectId": "cmotnj1w9000bbcvc97jpvwjm",
+      "major": "IT",
+      "year": "YEAR_5",
+      "canEdit": true,
+      "createdAt": "2026-05-06T06:03:56.155Z",
+      "updatedAt": "2026-05-06T06:03:56.155Z"
+    },
+    {
+      "id": "cmotnj9m4001vbcvchk7z9jrb",
+      "teacherId": "cmotnpomx00023svcpbwjlzux",
+      "subjectId": "cmotnj1w60007bcvc9786usr0",
+      "major": "IT",
+      "year": "YEAR_3",
+      "canEdit": true,
+      "createdAt": "2026-05-06T06:03:55.372Z",
+      "updatedAt": "2026-05-07T06:03:21.376Z"
+    },
+    {
+      "id": "cmotnj9d6001tbcvcrn46cyqz",
+      "teacherId": "cmotnpomx00023svcpbwjlzux",
+      "subjectId": "cmotnj1w40005bcvcgzvqmyq0",
+      "major": "IT",
+      "year": "YEAR_2",
+      "canEdit": true,
+      "createdAt": "2026-05-06T06:03:55.050Z",
+      "updatedAt": "2026-05-07T06:03:47.523Z"
+    },
+    {
+      "id": "cmotnjajv0021bcvcaqu6xchh",
+      "teacherId": "cmotnpomx00023svcpbwjlzux",
+      "subjectId": "cmotnj1wa000dbcvcwto382zv",
+      "major": "IT",
+      "year": "YEAR_6",
+      "canEdit": true,
+      "createdAt": "2026-05-06T06:03:56.587Z",
+      "updatedAt": "2026-05-07T06:06:34.558Z"
+    },
+    {
+      "id": "cmotnjaet0020bcvcprb4r73w",
+      "teacherId": "cmotnpomx00023svcpbwjlzux",
+      "subjectId": "cmotnj1wa000cbcvch22y8y1k",
+      "major": "IT",
+      "year": "YEAR_6",
+      "canEdit": true,
+      "createdAt": "2026-05-06T06:03:56.405Z",
+      "updatedAt": "2026-05-07T06:06:37.331Z"
+    }
+  ]
+}

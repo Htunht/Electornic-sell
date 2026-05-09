@@ -10,6 +10,7 @@ import ResetPasswordPage from "./components/auth/reset-password";
 import StudentDashboard from "./pages/dashboard/StudentDashboard";
 import TeacherDashboard from "./pages/dashboard/TeacherDashboard";
 import TeacherStudentsYear from "./pages/dashboard/TeacherStudentsYear";
+import TeacherClassManagement from "./pages/dashboard/TeacherClassManagement";
 
 import { useSession } from "./lib/auth-client";
 
@@ -36,6 +37,7 @@ export const router = createBrowserRouter([
       { path: "student", Component: StudentDashboard },
       { path: "teacher", Component: TeacherDashboard },
       { path: "teacher/students/:year", Component: TeacherStudentsYear },
+      { path: "teacher/classes/:subjectId/manage", Component: TeacherClassManagement },
     ],
   },
   {

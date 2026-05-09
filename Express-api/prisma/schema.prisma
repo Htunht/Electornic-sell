@@ -167,10 +167,11 @@ model Student {
 
 model Subject {
   id             String          @id @default(cuid())
-  code           String          @unique // e.g., "IT-3101"
+  code           String          @unique // e.g., "IT-3101-S1"
   name           String
   major          Major
   year           AcademicYear
+  semester       Int             @default(1) // 1 = Semester 1, 2 = Semester 2
   creditHours    Int             @default(3)
   
   assignments    SubjectAssignment[]
@@ -179,8 +180,8 @@ model Subject {
   results        Result[]
   attendance     Attendance[]
 
-  // Indexing for faster subject lookups per major/year
-  @@index([major, year])
+  // Indexing for faster subject lookups per major/year/semester
+  @@index([major, year, semester])
   @@map("subjects")
 }
 
@@ -215,7 +216,7 @@ model SubjectAssignment {
 model QuestionPaper {
   id        String   @id @default(cuid())
   subjectId String
-  subject   Subject  @relation(fields: [subjectId], references: [id])
+  subject   Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   
   teacherId String
   teacher   Teacher  @relation(fields: [teacherId], references: [id])
@@ -238,7 +239,7 @@ model Submission {
   student     Student  @relation(fields: [studentId], references: [id])
   
   subjectId   String
-  subject     Subject  @relation(fields: [subjectId], references: [id])
+  subject     Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   
   pdfUrl      String   // URL to the submitted PDF
   
@@ -260,7 +261,7 @@ model Result {
   student   Student  @relation(fields: [studentId], references: [id])
   
   subjectId String
-  subject   Subject  @relation(fields: [subjectId], references: [id])
+  subject   Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   
   teacherId String
   teacher   Teacher  @relation(fields: [teacherId], references: [id])
@@ -289,7 +290,7 @@ model Attendance {
   student   Student          @relation(fields: [studentId], references: [id])
 
   subjectId String
-  subject   Subject          @relation(fields: [subjectId], references: [id])
+  subject   Subject          @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
   teacherId String?
   teacher   Teacher?         @relation(fields: [teacherId], references: [id])

@@ -100,6 +100,18 @@ router.post(
   requireRole("TEACHER"),
   teacherController.createSubject as unknown as RequestHandler,
 );
+router.put(
+  "/teachers/subjects/:id",
+  authGuard,
+  requireRole("TEACHER"),
+  teacherController.updateSubject as unknown as RequestHandler,
+);
+router.delete(
+  "/teachers/subjects/:id",
+  authGuard,
+  requireRole("TEACHER"),
+  teacherController.deleteSubject as unknown as RequestHandler,
+);
 
 // ---------------------------------------------------------------------------
 // Calendar APIs

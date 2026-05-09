@@ -105,26 +105,39 @@ export async function deleteTeacher(id: string) {
 // express-api/src/respositry/teacherRepository.ts
 
 /** Classes Tab မှ ဘာသာရပ်အလိုက် ကျောင်းခေါ်ချိန်ကို အစုလိုက်သိမ်းရန် */
-export async function bulkUpdateAttendance(subjectId: string, data: any[]) {
+export async function bulkUpdateAttendance(subjectId: string, data: any[], teacherId: string) {
+  // Fetch subject to get major and year for denormalization
+  const subject = await prisma.subject.findUnique({ where: { id: subjectId } });
+  
   return prisma.$transaction(
-    data.map((item) =>
-      prisma.attendance.upsert({
+    data.map((item) => {
+      const dateObj = new Date(item.date);
+      // Ensure time is reset to 00:00:00 for daily attendance consistency
+      dateObj.setHours(0, 0, 0, 0);
+
+      return prisma.attendance.upsert({
         where: {
-          studentId_subjectId_date: {
+          studentId_date_subjectId: {
             studentId: item.studentId,
+            date: dateObj,
             subjectId: subjectId,
-            date: item.date,
           },
         },
-        update: { status: item.status },
+        update: { 
+          status: item.status,
+          teacherId: teacherId,
+        },
         create: {
           studentId: item.studentId,
           subjectId: subjectId,
           status: item.status,
-          date: item.date,
+          date: dateObj,
+          major: subject?.major,
+          year: subject?.year,
+          teacherId: teacherId,
         },
-      }),
-    ),
+      });
+    }),
   );
 }
 
@@ -158,6 +171,7 @@ export async function upsertStudentMarks(
       marks: marks,
       grade: grade,
       teacherId: teacherId,
+      semester: subject.semester, // Sync from subject if it changed
     },
     create: {
       studentId: studentId,
@@ -167,6 +181,7 @@ export async function upsertStudentMarks(
       teacherId: teacherId,
       major: student.major,
       year: student.year,
+      semester: subject.semester,
     },
   });
 }

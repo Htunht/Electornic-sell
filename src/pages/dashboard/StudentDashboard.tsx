@@ -1,6 +1,6 @@
 import { useSession } from "../../lib/auth-client";
 import { useNavigate } from "react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import StudentProfile from "../../components/dashboard/StudentProfile";
 import GPACard from "../../components/dashboard/GPACard";
 import GradeTable from "../../components/dashboard/GradeTable";
@@ -9,6 +9,19 @@ import CalendarWidget from "../../components/dashboard/CalendarWidget";
 import DashboardNav from "../../components/dashboard/DashboardNav";
 import CompleteStudentProfileCard from "../../components/dashboard/CompleteStudentProfileCard";
 import { studentApi, calendarApi } from "../../lib/api";
+import {  
+  Calendar, 
+  Award, 
+  BookOpen, 
+  LayoutDashboard, 
+  TrendingUp, 
+  CheckCircle2,
+  Clock,
+  ChevronRight,
+  ArrowRight,
+  Sparkles
+} from "lucide-react";
+import { cn } from "../../lib/utils";
 
 // ─── Student Dashboard ────────────────────────────────────────────────────────
 export default function StudentDashboard() {
@@ -18,11 +31,18 @@ export default function StudentDashboard() {
     "overview" | "grades" | "attendance"
   >("overview");
 
-  const [studentData, setStudentData] = useState<unknown>(null);
-  const [results, setResults] = useState<unknown[]>([]);
-  const [events, setEvents] = useState<unknown[]>([]);
-  const [attendanceRaw, setAttendanceRaw] = useState<unknown[]>([]);
+  const [studentData, setStudentData] = useState<any>(null);
+  const [results, setResults] = useState<any[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
+  const [attendanceRaw, setAttendanceRaw] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
+  }, []);
 
   const refreshAll = async () => {
     const [profileRes, resultsRes, eventsRes, attendanceRes] = await Promise.all([
@@ -64,12 +84,13 @@ export default function StudentDashboard() {
 
   if (isPending || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-emerald-50">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-full border-4 border-t-emerald-500 border-r-emerald-500/30 border-b-emerald-500/10 border-l-emerald-500/50 animate-spin" />
-          <p className="text-emerald-600 text-sm font-medium tracking-wider animate-pulse">
-            Loading dashboard…
-          </p>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50/50">
+        <div className="relative">
+          <div className="w-24 h-24 rounded-full border-4 border-emerald-500/10" />
+          <div className="absolute inset-0 w-24 h-24 rounded-full border-4 border-t-emerald-500 border-r-emerald-500/40 animate-spin" />
+          <div className="mt-12 text-center">
+            <p className="text-emerald-700 font-black tracking-widest text-sm uppercase animate-pulse">Synchronizing</p>
+          </div>
         </div>
       </div>
     );
@@ -77,23 +98,10 @@ export default function StudentDashboard() {
 
   if (!session || !studentData) return null;
 
-  const student = studentData as {
-    rollNo?: string;
-    name?: string;
-    major?: string;
-    year?: string;
-    phoneNumber?: string | null;
-    address?: string | null;
-  };
+  const student = studentData;
 
   // Calculate GPA from real results
-  const typedResults = results as Array<{
-    gradePoint?: number;
-    semester?: number;
-    academicYear?: string;
-    subject?: { code?: string; name?: string; creditHours?: number };
-  }>;
-
+  const typedResults = results;
   const totalGradePoints = typedResults.reduce(
     (acc, r) => acc + (r.gradePoint ?? 0) * (r.subject?.creditHours ?? 0),
     0,
@@ -120,7 +128,7 @@ export default function StudentDashboard() {
   const needsProfile =
     !student.rollNo || !student.year || !student.phoneNumber || !student.address;
 
-  const formattedGrades = (typedResults as Array<any>).map((r, idx) => ({
+  const formattedGrades = typedResults.map((r, idx) => ({
     id: String(r.id ?? idx),
     code: r.subject?.code || "N/A",
     name: r.subject?.name || "N/A",
@@ -132,25 +140,8 @@ export default function StudentDashboard() {
     status: r.status ?? "APPROVED",
   }));
 
-  // Convert raw attendance rows into AttendanceSummary format (per subject)
-  type AttendanceSummaryRow = {
-    id: string;
-    code: string;
-    name: string;
-    total: number;
-    present: number;
-    absent: number;
-    leave: number;
-  };
-
-  const typedAttendance = attendanceRaw as Array<{
-    subjectId?: string;
-    status?: "PRESENT" | "ABSENT" | "LATE" | "EXCUSED";
-    subject?: { code?: string; name?: string };
-  }>;
-
   const attendanceSummary = Object.values(
-    typedAttendance.reduce<Record<string, AttendanceSummaryRow>>((acc, row) => {
+    attendanceRaw.reduce<Record<string, any>>((acc, row) => {
       const key = row.subjectId ?? "unknown";
       if (!acc[key]) {
         acc[key] = {
@@ -171,120 +162,295 @@ export default function StudentDashboard() {
     }, {}),
   );
 
+  const totalPossible = attendanceRaw.length;
+  const totalPresent = attendanceRaw.filter(a => a.status === "PRESENT").length;
+  const overallAttendancePct = totalPossible > 0 ? Math.round((totalPresent / totalPossible) * 100) : 0;
+
   return (
-    <div className="min-h-screen bg-linear-to-b from-emerald-50 via-white to-white text-slate-900 font-sans">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-indigo-100">
+      {/* Immersive Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -left-40 w-[700px] h-[700px] rounded-full bg-emerald-200/20 blur-[130px]" />
-        <div className="absolute top-1/4 -right-20 w-[600px] h-[600px] rounded-full bg-green-200/20 blur-[120px]" />
-        <div className="absolute bottom-0 left-1/4 w-[500px] h-[500px] rounded-full bg-teal-100/30 blur-[100px]" />
+        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-emerald-400/10 blur-[140px] animate-pulse" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full bg-indigo-400/10 blur-[140px]" />
+        <div className="absolute top-[40%] right-[20%] w-[300px] h-[300px] rounded-full bg-blue-400/5 blur-[100px]" />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
         <DashboardNav session={session} />
 
-        <div className="mt-6">
-          {needsProfile && (
+        {/* Dynamic Hero Section */}
+        <div className="mt-8 relative rounded-[3rem] overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-emerald-950 text-white p-8 md:p-14 shadow-2xl shadow-indigo-900/20">
+          <div className="absolute top-0 right-0 p-12 opacity-[0.03] hidden lg:block">
+            <LayoutDashboard size={400} strokeWidth={1} />
+          </div>
+          
+          <div className="relative z-10">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+              <div className="max-w-2xl">
+                <div className="flex items-center gap-3 mb-6">
+                  <span className="px-4 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase tracking-[0.2em]">
+                    Academic Journey
+                  </span>
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-indigo-200 text-[10px] font-bold">
+                    <Sparkles size={12} className="text-yellow-400" />
+                    Premium Portal
+                  </div>
+                </div>
+                
+                <h1 className="text-4xl md:text-6xl font-black tracking-tight mb-4 leading-[1.1]">
+                  {greeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-blue-300 to-indigo-300">{session.user.name?.split(' ')[0] || "Student"}</span>!
+                </h1>
+                
+                <p className="text-slate-400 text-lg md:text-xl font-medium leading-relaxed max-w-xl">
+                  Welcome back to your academic hub. You're currently enrolled in <span className="text-white font-bold">{student.major || "IT"}</span>, <span className="text-white font-bold">{student.year?.replace('_', ' ')}</span>.
+                </p>
+                
+                <div className="mt-10 flex flex-wrap gap-4">
+                  <button className="group flex items-center gap-3 px-8 py-4 bg-emerald-500 text-white rounded-2xl shadow-xl shadow-emerald-500/25 hover:bg-emerald-400 transition-all font-black text-sm">
+                    View Schedule
+                    <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
+                  </button>
+                  <button className="flex items-center gap-3 px-8 py-4 bg-white/10 backdrop-blur-md border border-white/10 text-white rounded-2xl hover:bg-white/20 transition-all font-black text-sm">
+                    Student Resources
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Profile Overview Overlay */}
+              <div className="hidden lg:block w-72 p-8 rounded-[2.5rem] bg-white/5 backdrop-blur-2xl border border-white/10 shadow-2xl">
+                <div className="text-center">
+                  <div className="relative inline-block mb-4">
+                    <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-emerald-400 to-blue-500 flex items-center justify-center text-2xl font-black text-white shadow-xl">
+                      {session.user.name?.[0].toUpperCase()}
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 border-4 border-slate-900" />
+                  </div>
+                  <h3 className="font-bold text-lg text-white mb-1">{session.user.name}</h3>
+                  <p className="text-xs text-slate-500 font-medium mb-6">{student.rollNo}</p>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-500">
+                      <span>Status</span>
+                      <span className="text-emerald-400">Enrolled</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                      <div className="w-full h-full bg-gradient-to-r from-emerald-500 to-blue-500" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Profile Completion Warning */}
+        {needsProfile && (
+          <div className="mt-8">
             <CompleteStudentProfileCard
               initialRollNo={student.rollNo}
               initialYear={student.year}
               initialPhoneNumber={student.phoneNumber}
               initialAddress={student.address}
               onCompleted={refreshAll}
-              className="mb-6"
+              className="rounded-[2.5rem] border-rose-100 bg-rose-50/50"
             />
-          )}
-          <StudentProfile student={profileInfo} />
+          </div>
+        )}
+
+        {/* Stats Grid */}
+        <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <CreativeStat 
+            label="Academic Year" 
+            value={student.year?.replace('_', ' ') || "N/A"} 
+            icon={<Calendar className="text-emerald-600" />} 
+            bg="bg-emerald-50"
+            trend="Current"
+          />
+          <CreativeStat 
+            label="Cumulative GPA" 
+            value={currentGPA.toFixed(2)} 
+            icon={<Award className="text-indigo-600" />} 
+            bg="bg-indigo-50"
+            trend="+0.12 vs last sem"
+            trendColor="text-emerald-600"
+          />
+          <CreativeStat 
+            label="Credits Earned" 
+            value={totalCredits} 
+            icon={<BookOpen className="text-blue-600" />} 
+            bg="bg-blue-50"
+            trend="Total units"
+          />
+          <CreativeStat 
+            label="Attendance" 
+            value={`${overallAttendancePct}%`} 
+            icon={<TrendingUp className={cn(overallAttendancePct < 75 ? "text-rose-600" : "text-amber-600")} />} 
+            bg={overallAttendancePct < 75 ? "bg-rose-50" : "bg-amber-50"}
+            trend={overallAttendancePct < 75 ? "Below requirement" : "Exceeds requirement"}
+            trendColor={overallAttendancePct < 75 ? "text-rose-600" : "text-emerald-600"}
+          />
         </div>
 
-        <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <QuickStat
-            label="Roll Number"
-            value={student.rollNo ?? ""}
-            icon="🎓"
-            color="from-emerald-50 to-emerald-100 border-emerald-200"
-          />
-          <QuickStat
-            label="Academic Year"
-            value={student.year ?? ""}
-            icon="📅"
-            color="from-green-50 to-green-100 border-green-200"
-          />
-          <QuickStat
-            label="Current GPA"
-            value={currentGPA.toFixed(2)}
-            icon="⭐"
-            color="from-emerald-50 to-emerald-100 border-emerald-200"
-          />
-          <QuickStat
-            label="Credits Earned"
-            value={`${totalCredits} cr`}
-            icon="📚"
-            color="from-green-50 to-green-100 border-green-200"
-          />
-        </div>
-
-        <div className="mt-8 flex gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200 w-fit shadow-sm">
-          {(["overview", "grades", "attendance"] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-5 py-2 rounded-lg text-sm font-medium capitalize transition-all duration-200 ${
-                activeTab === tab
-                  ? "bg-emerald-600 text-white shadow-md shadow-emerald-200"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-6">
-          {activeTab === "overview" && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 flex flex-col gap-6">
-                <GPACard gpa={currentGPA} grades={formattedGrades} />
-                <AttendanceSummary attendance={attendanceSummary} compact />
+        {/* Main Content Explorer */}
+        <div className="mt-12">
+          <div className="flex flex-col lg:flex-row gap-10">
+            {/* Left Content Column */}
+            <div className="flex-1 space-y-10">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+                <div className="flex gap-1 p-1 bg-slate-200/50 rounded-2xl">
+                  {(["overview", "grades", "attendance"] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 ${
+                        activeTab === tab
+                          ? "bg-white text-emerald-600 shadow-md"
+                          : "text-slate-500 hover:text-slate-900"
+                      }`}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div>
+
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {activeTab === "overview" && (
+                  <div className="space-y-8">
+                    <section>
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-2xl font-black text-slate-900 tracking-tight">Academic Profile</h3>
+                        <button className="text-emerald-600 font-bold text-sm hover:underline">Edit Profile</button>
+                      </div>
+                      <StudentProfile student={profileInfo} />
+                    </section>
+                    
+                    <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="p-8 rounded-[2.5rem] bg-white border border-slate-100 shadow-xl shadow-slate-200/30">
+                        <div className="flex items-center justify-between mb-6">
+                          <h4 className="font-black text-slate-800 uppercase tracking-widest text-xs">Performance Summary</h4>
+                          <Award size={18} className="text-emerald-500" />
+                        </div>
+                        <GPACard gpa={currentGPA} grades={formattedGrades} />
+                      </div>
+                      
+                      <div className="p-8 rounded-[2.5rem] bg-white border border-slate-100 shadow-xl shadow-slate-200/30">
+                        <div className="flex items-center justify-between mb-6">
+                          <h4 className="font-black text-slate-800 uppercase tracking-widest text-xs">Recent Attendance</h4>
+                          <CheckCircle2 size={18} className="text-blue-500" />
+                        </div>
+                        <AttendanceSummary attendance={attendanceSummary} compact />
+                      </div>
+                    </section>
+                  </div>
+                )}
+
+                {activeTab === "grades" && (
+                  <div className="space-y-8">
+                    <div className="p-8 rounded-[2.5rem] bg-gradient-to-br from-indigo-600 to-blue-700 text-white shadow-xl shadow-indigo-200">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div>
+                          <h3 className="text-2xl font-black mb-1">Academic Records</h3>
+                          <p className="text-indigo-100 text-sm font-medium">A detailed breakdown of your subject performance and grades.</p>
+                        </div>
+                        <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
+                          <div className="text-center px-4 border-r border-white/10">
+                            <p className="text-[10px] font-black uppercase tracking-widest opacity-60">GPA</p>
+                            <p className="text-xl font-black">{currentGPA.toFixed(2)}</p>
+                          </div>
+                          <div className="text-center px-4">
+                            <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Credits</p>
+                            <p className="text-xl font-black">{totalCredits}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <GradeTable grades={formattedGrades} />
+                  </div>
+                )}
+
+                {activeTab === "attendance" && (
+                  <div className="space-y-8">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-2xl font-black text-slate-900 tracking-tight">Attendance Analytics</h3>
+                        <p className="text-slate-500 text-sm mt-1">Monitor your presence across all enrolled subjects.</p>
+                      </div>
+                      <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-xl text-xs font-bold">
+                        <Clock size={16} /> Updated daily
+                      </div>
+                    </div>
+                    <AttendanceSummary attendance={attendanceSummary} />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Sidebar */}
+            <div className="w-full lg:w-80 space-y-10">
+              <section>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight">Events</h3>
+                  <button className="text-slate-400 p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                    <Calendar size={18} />
+                  </button>
+                </div>
                 <CalendarWidget events={events} />
+              </section>
+
+              <div className="p-8 rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-2xl overflow-hidden relative group cursor-pointer">
+                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
+                  <TrendingUp size={120} />
+                </div>
+                <div className="relative z-10">
+                  <h4 className="font-black text-lg mb-2">Grade Predictor</h4>
+                  <p className="text-slate-400 text-xs mb-6 leading-relaxed">Simulate your future GPA by projecting your current performance trends.</p>
+                  <button className="w-full py-3 bg-white text-slate-900 rounded-2xl font-black text-xs hover:bg-slate-50 transition-colors shadow-xl">
+                    Launch Simulator
+                  </button>
+                </div>
               </div>
             </div>
-          )}
-
-          {activeTab === "grades" && (
-            <div className="flex flex-col gap-6">
-              <GPACard gpa={currentGPA} grades={formattedGrades} showDetails />
-              <GradeTable grades={formattedGrades} />
-            </div>
-          )}
-
-          {activeTab === "attendance" && <AttendanceSummary attendance={attendanceSummary} />}
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function QuickStat({
-  label,
-  value,
-  icon,
-  color,
-}: {
-  label: string;
-  value: string;
-  icon: string;
-  color: string;
+function CreativeStat({ 
+  label, 
+  value, 
+  icon, 
+  bg, 
+  trend, 
+  trendColor = "text-slate-400" 
+}: { 
+  label: string; 
+  value: string | number; 
+  icon: React.ReactNode; 
+  bg: string;
+  trend?: string;
+  trendColor?: string;
 }) {
   return (
-    <div
-      className={`bg-linear-to-br ${color} border rounded-2xl p-4 hover:scale-[1.02] transition-transform duration-200 shadow-sm`}
-    >
-      <div className="text-2xl mb-2">{icon}</div>
-      <div className="text-xl font-bold text-slate-800">{value}</div>
-      <div className="text-xs text-slate-500 mt-1 font-medium uppercase tracking-wider">
-        {label}
+    <div className="group bg-white p-6 rounded-[2.5rem] border border-white shadow-xl shadow-slate-200/40 hover:shadow-2xl hover:shadow-indigo-200/40 transition-all duration-500 hover:-translate-y-1">
+      <div className="flex justify-between items-start mb-6">
+        <div className={`w-14 h-14 rounded-2xl ${bg} flex items-center justify-center transition-transform duration-500 group-hover:scale-110`}>
+          {icon}
+        </div>
+        <button className="p-2 bg-slate-50 text-slate-300 rounded-xl hover:bg-emerald-50 hover:text-emerald-500 transition-colors">
+          <ChevronRight size={16} />
+        </button>
+      </div>
+      <div>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">{label}</p>
+        <p className="text-3xl font-black text-slate-900 tracking-tight">{value}</p>
+        {trend && (
+          <p className={`text-[10px] font-bold mt-2 ${trendColor}`}>
+            {trend}
+          </p>
+        )}
       </div>
     </div>
   );

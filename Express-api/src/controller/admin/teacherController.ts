@@ -115,6 +115,7 @@ export async function saveBulkAttendance(
     const result = await teacherService.saveAttendance(
       subjectId,
       attendanceData,
+      req.user.id, // Pass userId to resolve teacherId
     );
     return res.json({ message: "Attendance saved successfully.", result });
   } catch (error) {

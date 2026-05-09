@@ -36,6 +36,7 @@ export async function createSubject(data: {
   name: string;
   major: any;
   year: any;
+  semester?: number;
   creditHours?: number;
 }) {
   const existing = await subjectRepo.findSubjectByCode(data.code);
@@ -46,7 +47,7 @@ export async function createSubject(data: {
 
 export async function updateSubject(
   id: string,
-  data: { code?: string; name?: string; creditHours?: number },
+  data: { code?: string; name?: string; creditHours?: number; year?: any; semester?: number },
 ) {
   await getSubjectById(id);
   if (data.code) {
