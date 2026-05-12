@@ -43,6 +43,13 @@ enum AttendanceStatus {
   EXCUSED
 }
 
+enum AnnouncementType {
+  URGENT
+  INFO
+  ACADEMIC
+  GENERAL
+}
+
 // --- MODELS ---
 
 model User {
@@ -133,6 +140,8 @@ model Teacher {
   questionPapers QuestionPaper[]
   results        Result[]
   attendance     Attendance[]
+  announcements  Announcement[]
+  calendarEvents CalendarEvent[]
 
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
@@ -306,4 +315,41 @@ model Attendance {
   @@index([major, year, date])
   @@unique([studentId, date, subjectId])
   @@map("attendance")
+}
+
+model Announcement {
+  id        String           @id @default(cuid())
+  title     String
+  content   String           @db.Text
+  type      AnnouncementType @default(GENERAL)
+  
+  // Author
+  teacherId String
+  teacher   Teacher          @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  // Target (Optional - if null, it's global)
+  major     Major?
+  year      AcademicYear?
+
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([major, year])
+  @@map("announcements")
+}
+
+model CalendarEvent {
+  id          String   @id @default(cuid())
+  title       String
+  description String?  @db.Text
+  date        DateTime @unique
+  
+  // Author
+  teacherId   String?
+  teacher     Teacher? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("calendar_events")
 }

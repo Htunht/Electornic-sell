@@ -1,39 +1,56 @@
 import { Response } from "express";
 import { AuthenticatedRequest } from "../../middleware/auth";
 import * as calendarService from "../../service/calendarService";
-import * as studentService from "../../service/studentService";
+import * as teacherService from "../../service/teacherService";
 import { ServiceError } from "../../service/userService";
-import { Major, AcademicYear } from "@prisma/client";
 
 export async function getMyEvents(req: AuthenticatedRequest, res: Response) {
   try {
     const { startDate, endDate } = req.query;
     
-    // Determine the target audience constraints based on user role
-    let targetMajor: Major | null | undefined = undefined;
-    let targetYear: AcademicYear | undefined = undefined;
-
-    if (req.user.role === "STUDENT") {
-      try {
-        const student = await studentService.getStudentByUserId(req.user.id);
-        targetMajor = student.major;
-        targetYear = student.year;
-      } catch {
-        // If profile isn't found, just fetch school-wide events
-        targetMajor = null; 
-      }
-    }
-    // Teachers might just see school-wide events or specific major events depending on their role, 
-    // for now we can just return events if they don't have constraints.
-
     const events = await calendarService.listEvents({
-      major: targetMajor,
-      year: targetYear,
       startDate: startDate ? new Date(startDate as string) : undefined,
       endDate: endDate ? new Date(endDate as string) : undefined,
     });
 
     return res.json(events);
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
+
+export async function saveEvent(req: AuthenticatedRequest, res: Response) {
+  try {
+    const { date, title, description } = req.body;
+    
+    if (req.user.role !== "TEACHER") {
+      return res.status(403).json({ message: "Only teachers can add or update notes." });
+    }
+
+    // Must use Teacher ID, not User ID
+    const teacher = await teacherService.getTeacherByUserId(req.user.id);
+
+    const event = await calendarService.upsertEvent({
+      date,
+      title,
+      description,
+      teacherId: teacher.id,
+    });
+
+    return res.json({ success: true, data: event });
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
+
+export async function deleteEvent(req: AuthenticatedRequest, res: Response) {
+  try {
+    const id = req.params.id as string;
+    if (req.user.role !== "TEACHER") {
+      return res.status(403).json({ message: "Only teachers can delete notes." });
+    }
+    await calendarService.removeEvent(id);
+    return res.json({ success: true, message: "Event deleted" });
   } catch (error) {
     return handleError(res, error);
   }

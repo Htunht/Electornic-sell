@@ -5,10 +5,10 @@ import StudentProfile from "../../components/dashboard/StudentProfile";
 import GPACard from "../../components/dashboard/GPACard";
 import GradeTable from "../../components/dashboard/GradeTable";
 import AttendanceSummary from "../../components/dashboard/AttendanceSummary";
-import CalendarWidget from "../../components/dashboard/CalendarWidget";
 import DashboardNav from "../../components/dashboard/DashboardNav";
 import CompleteStudentProfileCard from "../../components/dashboard/CompleteStudentProfileCard";
-import { studentApi, calendarApi } from "../../lib/api";
+import CreativeCalendar from "../../components/dashboard/CreativeCalendar";
+import { studentApi } from "../../lib/api";
 import {  
   Calendar, 
   Award, 
@@ -33,8 +33,8 @@ export default function StudentDashboard() {
 
   const [studentData, setStudentData] = useState<any>(null);
   const [results, setResults] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
   const [attendanceRaw, setAttendanceRaw] = useState<any[]>([]);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const greeting = useMemo(() => {
@@ -45,16 +45,23 @@ export default function StudentDashboard() {
   }, []);
 
   const refreshAll = async () => {
-    const [profileRes, resultsRes, eventsRes, attendanceRes] = await Promise.all([
+    const [profileRes, resultsRes, attendanceRes] = await Promise.all([
       studentApi.getMe(),
       studentApi.getResults(),
-      calendarApi.getEvents(),
       studentApi.getAttendance(),
     ]);
     setStudentData(profileRes.data);
     setResults(Array.isArray(resultsRes.data) ? resultsRes.data : []);
-    setEvents(eventsRes.data?.events || []);
     setAttendanceRaw(Array.isArray(attendanceRes.data) ? attendanceRes.data : []);
+
+    // Fetch announcements after profile is available to get major/year
+    if (profileRes.data) {
+      const annRes = await studentApi.getAnnouncements({
+        major: profileRes.data.major,
+        year: profileRes.data.year,
+      });
+      setAnnouncements(annRes.data?.data || []);
+    }
   };
 
   useEffect(() => {
@@ -390,12 +397,32 @@ export default function StudentDashboard() {
             <div className="w-full lg:w-80 space-y-10">
               <section>
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-black text-slate-900 tracking-tight">Events</h3>
-                  <button className="text-slate-400 p-2 hover:bg-slate-100 rounded-xl transition-colors">
-                    <Calendar size={18} />
-                  </button>
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight">Announcements</h3>
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 </div>
-                <CalendarWidget events={events} />
+                <div className="space-y-4">
+                  {announcements.length > 0 ? announcements.slice(0, 3).map(ann => (
+                    <AnnouncementCard 
+                      key={ann.id}
+                      title={ann.title}
+                      date={new Date(ann.createdAt).toLocaleDateString()}
+                      content={ann.content}
+                      type={ann.type.toLowerCase() as any}
+                    />
+                  )) : (
+                    <div className="p-8 text-center bg-slate-100/50 rounded-3xl border border-dashed border-slate-200">
+                      <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">No updates</p>
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              <section>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight">Academic Calendar</h3>
+                  <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                </div>
+                <CreativeCalendar canEdit={false} />
               </section>
 
               <div className="p-8 rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-2xl overflow-hidden relative group cursor-pointer">
@@ -452,6 +479,22 @@ function CreativeStat({
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+function AnnouncementCard({ title, date, content, type }: { title: string, date: string, content: string, type: 'urgent' | 'info' | 'academic' | 'general' }) {
+  return (
+    <div className={`p-4 rounded-2xl border-l-4 ${
+      type === 'urgent' ? 'border-rose-500 bg-rose-50/50' : 
+      type === 'academic' ? 'border-indigo-500 bg-indigo-50/50' :
+      'border-emerald-500 bg-emerald-50/50'
+    } transition-all hover:shadow-md`}>
+      <div className="flex justify-between items-start mb-1.5">
+        <h5 className="font-bold text-slate-800 text-xs">{title}</h5>
+        <span className="text-[9px] font-bold text-slate-400 uppercase whitespace-nowrap ml-2">{date}</span>
+      </div>
+      <p className="text-[11px] text-slate-600 leading-relaxed line-clamp-2">{content}</p>
     </div>
   );
 }

@@ -46,7 +46,9 @@ export default function TeacherStudentsYear() {
   
   const subjectIdParam = searchParams.get("subjectId");
   const modeParam = searchParams.get("mode");
+  const semesterParam = searchParams.get("semester");
 
+  const [semester, setSemester] = useState<number>(Number(semesterParam) || 1);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [limit] = useState(24);
@@ -98,7 +100,8 @@ export default function TeacherStudentsYear() {
   useEffect(() => {
     if (subjectIdParam) setSubjectId(subjectIdParam);
     if (modeParam) setViewMode(modeParam.toUpperCase() as any);
-  }, [subjectIdParam, modeParam]);
+    if (semesterParam) setSemester(Number(semesterParam));
+  }, [subjectIdParam, modeParam, semesterParam]);
 
   useEffect(() => {
     let cancelled = false;
@@ -328,8 +331,10 @@ export default function TeacherStudentsYear() {
 
   const displaySubjects = useMemo(() => {
     if (!teacherProfile || !allYearSubjects) return [];
-    return allYearSubjects.filter(sub => sub.major === teacherProfile.major);
-  }, [allYearSubjects, teacherProfile]);
+    return allYearSubjects.filter(
+      (sub) => sub.major === teacherProfile.major && (sub.semester === semester || !sub.semester)
+    );
+  }, [allYearSubjects, teacherProfile, semester]);
 
   async function saveRow(studentId: string) {
     const studentMarks = marksMatrix[studentId];
@@ -472,22 +477,48 @@ export default function TeacherStudentsYear() {
             </div>
           </div>
 
-          {/* Year Navigation Chips */}
-          <div className="flex flex-wrap items-center gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit">
-            {YEARS.map((y) => (
-              <Link
-                key={y}
-                to={`/teacher/students/${y}`}
-                className={cn(
-                  "px-5 py-2 rounded-xl text-xs font-bold transition-all",
-                  y === year
-                    ? "bg-white text-emerald-600 shadow-md"
-                    : "text-slate-500 hover:text-slate-700 hover:bg-white/50",
-                )}
-              >
-                {y.replace("_", " ")}
-              </Link>
-            ))}
+          {/* Year & Semester Navigation */}
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit">
+              {YEARS.map((y) => (
+                <Link
+                  key={y}
+                  to={`/teacher/students/${y}?semester=${semester}&mode=${viewMode.toLowerCase()}`}
+                  className={cn(
+                    "px-5 py-2 rounded-xl text-xs font-bold transition-all",
+                    y === year
+                      ? "bg-white text-emerald-600 shadow-md"
+                      : "text-slate-500 hover:text-slate-700 hover:bg-white/50",
+                  )}
+                >
+                  {y.replace("_", " ")}
+                </Link>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit">
+              {[1, 2].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => {
+                    setSemester(s);
+                    // Update URL without full refresh if possible, or just use Link. 
+                    // Since it's a state, we just set it, but for consistency:
+                    navigate(`/teacher/students/${year}?semester=${s}&mode=${viewMode.toLowerCase()}`);
+                  }}
+                  className={cn(
+                    "px-6 py-2 rounded-xl text-xs font-bold transition-all",
+                    semester === s
+                      ? s === 1 
+                        ? "bg-amber-500 text-white shadow-md" 
+                        : "bg-indigo-600 text-white shadow-md"
+                      : "text-slate-500 hover:text-slate-700 hover:bg-white/50",
+                  )}
+                >
+                  Semester {s}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Subject Arrangement Tool */}

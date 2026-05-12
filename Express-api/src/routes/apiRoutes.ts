@@ -4,6 +4,7 @@ import * as studentController from "../controller/api/studentController";
 import * as teacherController from "../controller/api/teacherController";
 import * as calendarController from "../controller/api/calendarController";
 import * as attendanceController from "../controller/api/attendanceController";
+import * as announcementController from "../controller/api/announcementController";
 import { authGuard, requireRole } from "../middleware/auth";
 
 const router = express.Router();
@@ -40,6 +41,12 @@ router.post(
   authGuard,
   requireRole("STUDENT"),
   studentController.completeProfile as unknown as RequestHandler,
+);
+router.get(
+  "/students/announcements",
+  authGuard,
+  requireRole("STUDENT"),
+  announcementController.getAnnouncements as unknown as RequestHandler,
 );
 
 // ---------------------------------------------------------------------------
@@ -112,6 +119,24 @@ router.delete(
   requireRole("TEACHER"),
   teacherController.deleteSubject as unknown as RequestHandler,
 );
+router.post(
+  "/teachers/announcements",
+  authGuard,
+  requireRole("TEACHER"),
+  announcementController.createAnnouncement as unknown as RequestHandler,
+);
+router.get(
+  "/teachers/announcements",
+  authGuard,
+  requireRole("TEACHER"),
+  announcementController.getAllAnnouncements as unknown as RequestHandler,
+);
+router.delete(
+  "/teachers/announcements/:id",
+  authGuard,
+  requireRole("TEACHER"),
+  announcementController.deleteAnnouncement as unknown as RequestHandler,
+);
 
 // ---------------------------------------------------------------------------
 // Calendar APIs
@@ -121,6 +146,12 @@ router.get(
   "/calendar/events",
   authGuard,
   calendarController.getMyEvents as unknown as RequestHandler,
+);
+router.post(
+  "/calendar/events",
+  authGuard,
+  requireRole("TEACHER"),
+  calendarController.saveEvent as unknown as RequestHandler,
 );
 
 export default router;

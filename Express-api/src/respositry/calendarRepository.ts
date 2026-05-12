@@ -1,35 +1,62 @@
 import prisma from "../lib/prisma";
-import { Major, AcademicYear, Prisma } from "@prisma/client";
-
-// CalendarEvent model has been removed from schema.
-// Functions are disabled to prevent TypeError.
+import { Prisma } from "@prisma/client";
 
 export async function findEventById(id: string) {
-  return null;
+  return await prisma.calendarEvent.findUnique({ where: { id } });
 }
 
-export async function findEvents(params?: any) {
+export async function findEvents(params?: { start?: string; end?: string }) {
+  const where: Prisma.CalendarEventWhereInput = {};
+  
+  if (params?.start && params?.end) {
+    const startDate = new Date(params.start);
+    const endDate = new Date(params.end);
+    
+    if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+      where.date = {
+        gte: startDate,
+        lte: endDate,
+      };
+    }
+  }
+
+  const events = await prisma.calendarEvent.findMany({
+    where,
+    orderBy: { date: "asc" },
+  });
+
   return {
-    events: [],
-    total: 0,
-    page: params?.page || 1,
-    limit: params?.limit || 50,
-    totalPages: 0,
+    events,
+    total: events.length,
   };
 }
 
-export async function createEvent(data: any) {
-  return null;
-}
+export async function upsertEvent(data: {
+  date: string;
+  title: string;
+  description?: string;
+  teacherId?: string;
+}) {
+  const eventDate = new Date(data.date);
+  // Reset to start of day for consistency
+  eventDate.setHours(0, 0, 0, 0);
 
-export async function updateEvent(
-  id: string,
-  data: any,
-) {
-  return null;
+  return await prisma.calendarEvent.upsert({
+    where: { date: eventDate },
+    update: {
+      title: data.title,
+      description: data.description,
+      teacherId: data.teacherId,
+    },
+    create: {
+      date: eventDate,
+      title: data.title,
+      description: data.description,
+      teacherId: data.teacherId,
+    },
+  });
 }
 
 export async function deleteEvent(id: string) {
-  return null;
+  return await prisma.calendarEvent.delete({ where: { id } });
 }
-

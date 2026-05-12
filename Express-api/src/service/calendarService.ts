@@ -2,10 +2,6 @@ import { Major, AcademicYear } from "@prisma/client";
 import * as calendarRepo from "../respositry/calendarRepository";
 import { ServiceError } from "./userService";
 
-// ---------------------------------------------------------------------------
-// Queries
-// ---------------------------------------------------------------------------
-
 export async function getEventById(id: string) {
   const event = await calendarRepo.findEventById(id);
   if (!event) throw new ServiceError(404, "Calendar event not found.");
@@ -13,51 +9,22 @@ export async function getEventById(id: string) {
 }
 
 export async function listEvents(params?: {
-  type?: string;
-  major?: Major | null;
-  year?: AcademicYear;
   startDate?: Date;
   endDate?: Date;
-  page?: number;
-  limit?: number;
 }) {
-  return calendarRepo.findEvents(params);
+  return calendarRepo.findEvents({
+    start: params?.startDate?.toISOString(),
+    end: params?.endDate?.toISOString(),
+  });
 }
 
-// ---------------------------------------------------------------------------
-// Mutations
-// ---------------------------------------------------------------------------
-
-export async function createEvent(data: {
+export async function upsertEvent(data: {
+  date: string;
   title: string;
   description?: string;
-  type: string;
-  startDate: Date;
-  endDate: Date;
-  major?: Major;
-  year?: AcademicYear;
-  createdBy: string;
+  teacherId?: string;
 }) {
-  if (new Date(data.endDate) < new Date(data.startDate)) {
-    throw new ServiceError(400, "End date must be after start date.");
-  }
-  return calendarRepo.createEvent(data);
-}
-
-export async function updateEvent(
-  id: string,
-  data: {
-    title?: string;
-    description?: string;
-    type?: string;
-    startDate?: Date;
-    endDate?: Date;
-    major?: Major | null;
-    year?: AcademicYear | null;
-  },
-) {
-  await getEventById(id);
-  return calendarRepo.updateEvent(id, data);
+  return calendarRepo.upsertEvent(data);
 }
 
 export async function removeEvent(id: string) {

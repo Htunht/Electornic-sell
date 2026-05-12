@@ -7,6 +7,8 @@ export const studentApi = {
     api.post("/students/complete-profile", data),
   getAttendance: (params?: { startDate?: string; endDate?: string; subjectId?: string }) =>
     api.get("/students/me/attendance", { params }),
+  getAnnouncements: (params?: { major?: string; year?: string }) =>
+    api.get("/students/announcements", { params }),
 };
 
 export const teacherApi = {
@@ -46,8 +48,14 @@ export const teacherApi = {
   // Keep compatibility for bulk results if needed
   bulkUpsertResults: (data: any) => 
     api.post("/teachers/results/bulk", data),
+
+  getAnnouncements: () => api.get("/teachers/announcements"),
+  createAnnouncement: (data: { title: string; content: string; type: string; major?: string; year?: string; teacherId: string }) =>
+    api.post("/teachers/announcements", data),
+  deleteAnnouncement: (id: string) => api.delete(`/teachers/announcements/${id}`),
 };
 
 export const calendarApi = {
-  getEvents: () => api.get("/calendar/events"),
+  getEvents: (params?: { startDate?: string; endDate?: string }) => api.get("/calendar/events", { params }),
+  saveEvent: (data: { date: string; title: string; description?: string }) => api.post("/calendar/events", data),
 };

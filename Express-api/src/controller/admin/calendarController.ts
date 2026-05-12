@@ -2,21 +2,17 @@ import { Response } from "express";
 import { AuthenticatedRequest } from "../../middleware/auth";
 import * as calendarService from "../../service/calendarService";
 import { ServiceError } from "../../service/userService";
-import { Major, AcademicYear } from "@prisma/client";
+
+import * as teacherService from "../../service/teacherService";
 
 // GET /api/admin/calendar
 export async function listEvents(req: AuthenticatedRequest, res: Response) {
   try {
-    const { type, major, year, startDate, endDate, page, limit } = req.query;
+    const { startDate, endDate } = req.query;
 
     const result = await calendarService.listEvents({
-      type: type as string | undefined,
-      major: major as Major | undefined,
-      year: year as AcademicYear | undefined,
       startDate: startDate ? new Date(startDate as string) : undefined,
       endDate: endDate ? new Date(endDate as string) : undefined,
-      page: page ? Number(page) : undefined,
-      limit: limit ? Number(limit) : undefined,
     });
 
     return res.json(result);
@@ -35,26 +31,24 @@ export async function getEvent(req: AuthenticatedRequest, res: Response) {
   }
 }
 
-// POST /api/admin/calendar
+// POST /api/admin/calendar (Upsert based on date)
 export async function createEvent(req: AuthenticatedRequest, res: Response) {
   try {
-    const { title, description, type, startDate, endDate, major, year } = req.body;
+    const { date, title, description } = req.body;
 
-    if (!title || !type || !startDate || !endDate) {
+    if (!date || !title) {
       return res
         .status(400)
-        .json({ message: "title, type, startDate, and endDate are required." });
+        .json({ message: "date and title are required." });
     }
 
-    const event = await calendarService.createEvent({
+    const teacher = await teacherService.getTeacherByUserId(req.user.id);
+
+    const event = await calendarService.upsertEvent({
+      date,
       title,
       description,
-      type,
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
-      major,
-      year,
-      createdBy: req.user.id,
+      teacherId: teacher.id,
     });
 
     return res.status(201).json(event);
@@ -63,19 +57,16 @@ export async function createEvent(req: AuthenticatedRequest, res: Response) {
   }
 }
 
-// PUT /api/admin/calendar/:id
+// PUT /api/admin/calendar/:id (In simplified model, we usually use POST/Upsert, but keeping for compatibility)
 export async function updateEvent(req: AuthenticatedRequest, res: Response) {
   try {
-    const { title, description, type, startDate, endDate, major, year } = req.body;
+    const { date, title, description } = req.body;
 
-    const event = await calendarService.updateEvent(req.params.id as string, {
+    const event = await calendarService.upsertEvent({
+      date,
       title,
       description,
-      type,
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
-      major,
-      year,
+      teacherId: req.user.id,
     });
 
     return res.json(event);
