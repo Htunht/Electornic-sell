@@ -249,6 +249,7 @@ export default function TeacherStudentsYear() {
       
       await teacherApi.saveBulkAttendance({
         subjectId,
+        year,
         attendanceData,
       });
       
@@ -332,7 +333,7 @@ export default function TeacherStudentsYear() {
   const displaySubjects = useMemo(() => {
     if (!teacherProfile || !allYearSubjects) return [];
     return allYearSubjects.filter(
-      (sub) => sub.major === teacherProfile.major && (sub.semester === semester || !sub.semester)
+      (sub) => (sub.semester === semester || !sub.semester)
     );
   }, [allYearSubjects, teacherProfile, semester]);
 
@@ -354,6 +355,7 @@ export default function TeacherStudentsYear() {
           studentId,
           subjectId: sid,
           marks,
+          year,
         });
       });
 
@@ -392,14 +394,14 @@ export default function TeacherStudentsYear() {
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-        <DashboardNav session={session} />
+        <DashboardNav session={session!} />
 
         <div className="mt-8 flex flex-col gap-8">
           {/* Page Header */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div className="space-y-4">
               <button
-                onClick={() => navigate("/head-teacher")}
+                onClick={() => navigate("/teacher")}
                 className="group inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-sm font-bold text-slate-600 hover:text-emerald-600 hover:border-emerald-200 transition-all shadow-sm"
               >
                 <ChevronLeft className="size-4 group-hover:-translate-x-0.5 transition-transform" />

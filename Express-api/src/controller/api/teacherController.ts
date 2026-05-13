@@ -3,9 +3,9 @@ import { AuthenticatedRequest } from "../../middleware/auth";
 import * as teacherService from "../../service/teacherService";
 import * as subjectService from "../../service/subjectService";
 import * as studentService from "../../service/studentService";
-import * as resultService from "../../service/resultService";
 import * as attendanceService from "../../service/attendanceService";
 import * as assignmentService from "../../service/assignmentService";
+import * as gradeSubmissionService from "../../service/gradeSubmissionService";
 import { ServiceError } from "../../service/userService";
 import { AcademicYear, AttendanceStatus } from "@prisma/client";
 
@@ -97,9 +97,6 @@ export async function createMyAssignment(req: AuthenticatedRequest, res: Respons
     }
 
     const subject = await subjectService.getSubjectById(subjectId);
-    if (subject.major !== teacher.major) {
-      return res.status(403).json({ message: "Forbidden: subject is outside your major." });
-    }
     if (String(subject.year) !== String(year)) {
       return res.status(400).json({ message: "year must match the subject.year." });
     }
@@ -174,18 +171,38 @@ export async function bulkUpsertResults(
         .json({ message: "subjectId, year, and records are required." });
     }
 
-    const result = await resultService.bulkUpsertResults(
+    // Permission check: Faculty must be assigned to this subject
+    const isAssigned = await assignmentService.isFacultyAssignedToSubject(req.user.id, subjectId);
+    if (!isAssigned) {
+      return res.status(403).json({ 
+        message: "Forbidden: You are not assigned to teach this subject." 
+      });
+    }
+
+    // Grades go into GradeSubmission (PENDING) — not directly to Result.
+    // A Head Teacher must approve before they count for the student.
+    const result = await gradeSubmissionService.submitGrades(
       teacher.id,
       subjectId,
       teacher.major,
       year,
       records,
-      {
-        semester,
-        academicYear,
-      },
+      { semester, academicYear },
     );
-    return res.json(result);
+    return res.json({ submitted: result.length, message: "Grades submitted for head-teacher review." });
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
+
+export async function getMySubmissions(
+  req: AuthenticatedRequest,
+  res: Response,
+) {
+  try {
+    const teacher = await teacherService.getTeacherByUserId(req.user.id);
+    const submissions = await gradeSubmissionService.getTeacherSubmissions(teacher.id);
+    return res.json(submissions);
   } catch (error) {
     return handleError(res, error);
   }
@@ -208,6 +225,14 @@ export async function bulkUpsertAttendance(
       return res
         .status(400)
         .json({ message: "subjectId, year, date, and records are required." });
+    }
+
+    // Permission check: Faculty must be assigned to this subject
+    const isAssigned = await assignmentService.isFacultyAssignedToSubject(req.user.id, subjectId);
+    if (!isAssigned) {
+      return res.status(403).json({ 
+        message: "Forbidden: You are not assigned to teach this subject." 
+      });
     }
 
     const dt = new Date(date);

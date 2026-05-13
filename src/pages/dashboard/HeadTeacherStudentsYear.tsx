@@ -12,14 +12,15 @@ import {
   Users,
   Save,
   CheckCircle2,
-  Info,
   Layers,
-  GraduationCap,
-  Filter,
   Trash2,
   CalendarCheck,
   ClipboardList,
   AlertCircle,
+  Sparkles,
+  Clock,
+  LayoutDashboard,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -37,13 +38,13 @@ function isYear(v: string | undefined): v is Year {
   return !!v && (YEARS as readonly string[]).includes(v);
 }
 
-export default function TeacherStudentsYear() {
+export default function HeadTeacherStudentsYear() {
   const { data: session, isPending } = useSession();
   const navigate = useNavigate();
   const params = useParams();
   const [searchParams] = useSearchParams();
   const year = isYear(params.year) ? params.year : "YEAR_1";
-  
+
   const subjectIdParam = searchParams.get("subjectId");
   const modeParam = searchParams.get("mode");
   const semesterParam = searchParams.get("semester");
@@ -75,19 +76,20 @@ export default function TeacherStudentsYear() {
   const [savedRows, setSavedRows] = useState<Record<string, boolean>>({});
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [teacherProfile, setTeacherProfile] = useState<any>(null);
-  
-  // New Features State
+
   const [viewMode, setViewMode] = useState<"GRADING" | "ATTENDANCE">(
-    (modeParam?.toUpperCase() as any) || "GRADING"
+    (modeParam?.toUpperCase() as any) || "GRADING",
   );
-  const [attendanceMatrix, setAttendanceMatrix] = useState<Record<string, "PRESENT" | "ABSENT">>(
-    {}
+  const [attendanceMatrix, setAttendanceMatrix] = useState<
+    Record<string, "PRESENT" | "ABSENT">
+  >({});
+  const [deletingSubjectId, setDeletingSubjectId] = useState<string | null>(
+    null,
   );
-  const [deletingSubjectId, setDeletingSubjectId] = useState<string | null>(null);
   const [isAttendanceSaving, setIsAttendanceSaving] = useState(false);
 
   const currentSubject = useMemo(() => {
-    return allYearSubjects.find(s => String(s.id) === subjectId);
+    return allYearSubjects.find((s) => String(s.id) === subjectId);
   }, [allYearSubjects, subjectId]);
 
   useEffect(() => {
@@ -147,8 +149,6 @@ export default function TeacherStudentsYear() {
     setSaveMsg(null);
     try {
       if (existing?.id) {
-        // Confirmation modal logic would set deletingSubjectId
-        // This function is kept for the "Add" part, but we'll use a separate delete handler for the icon
         await headTeacherApi.deleteAssignment(String(existing.id));
       } else {
         await headTeacherApi.createAssignment({ subjectId: sid, year });
@@ -161,9 +161,6 @@ export default function TeacherStudentsYear() {
     }
   }
 
-  /**
-   * Refetches assignments and updates local state
-   */
   async function refreshAssignments() {
     const asgnRes = await headTeacherApi.getAssignments();
     const list = Array.isArray(asgnRes.data?.assignments)
@@ -189,9 +186,6 @@ export default function TeacherStudentsYear() {
     }
   }
 
-  /**
-   * Handles Subject Deletion with Optimistic UI update
-   */
   async function handleDeleteSubject(sid: string) {
     const assignment = assignmentBySubjectId[sid];
     if (!assignment?.id) return;
@@ -199,12 +193,11 @@ export default function TeacherStudentsYear() {
     setDeletingSubjectId(null);
     setSaveMsg(null);
 
-    // Optimistic Update
     const prevAssignments = subjects;
     const prevMapping = assignmentBySubjectId;
-    
-    setSubjects(prev => prev.filter(a => String(a.subject?.id) !== sid));
-    setAssignmentBySubjectId(prev => {
+
+    setSubjects((prev) => prev.filter((a) => String(a.subject?.id) !== sid));
+    setAssignmentBySubjectId((prev) => {
       const copy = { ...prev };
       delete copy[sid];
       return copy;
@@ -215,20 +208,16 @@ export default function TeacherStudentsYear() {
       setSaveMsg("Subject removed successfully.");
       setTimeout(() => setSaveMsg(null), 3000);
     } catch (e: unknown) {
-      // Rollback on error
       setSubjects(prevAssignments);
       setAssignmentBySubjectId(prevMapping);
       setSaveMsg(e instanceof Error ? e.message : "Failed to delete subject.");
     }
   }
 
-  /**
-   * Attendance Logic
-   */
   function toggleAttendance(studentId: string, status: "PRESENT" | "ABSENT") {
-    setAttendanceMatrix(prev => ({
+    setAttendanceMatrix((prev) => ({
       ...prev,
-      [studentId]: status
+      [studentId]: status,
     }));
   }
 
@@ -237,25 +226,26 @@ export default function TeacherStudentsYear() {
       setSaveMsg("No attendance changes to save.");
       return;
     }
-    
+
     setIsAttendanceSaving(true);
     setSaveMsg(null);
     try {
-      const attendanceData = Object.entries(attendanceMatrix).map(([studentId, status]) => ({
-        studentId,
-        status,
-        date: entryDate,
-      }));
-      
+      const attendanceData = Object.entries(attendanceMatrix).map(
+        ([studentId, status]) => ({
+          studentId,
+          status,
+          date: entryDate,
+        }),
+      );
+
       await headTeacherApi.saveBulkAttendance({
         subjectId,
+        year,
         attendanceData,
       });
-      
-      setSaveMsg("Attendance records synchronized successfully.");
-      setAttendanceMatrix({}); // Clear local state after successful sync
-      
-      // Auto-hide success message
+
+      setSaveMsg("Attendance records synchronized.");
+      setAttendanceMatrix({});
       setTimeout(() => setSaveMsg(null), 3000);
     } catch (e: unknown) {
       setSaveMsg(e instanceof Error ? e.message : "Failed to sync attendance.");
@@ -264,7 +254,6 @@ export default function TeacherStudentsYear() {
     }
   }
 
-  // reset pagination when changing year/search
   useEffect(() => {
     setPage(1);
   }, [year]);
@@ -282,17 +271,21 @@ export default function TeacherStudentsYear() {
           limit,
         });
         if (cancelled) return;
-        
+
         let filteredStudents = res.data?.students ?? [];
         if (currentSubject) {
-          filteredStudents = filteredStudents.filter((s: any) => s.major === currentSubject.major);
+          filteredStudents = filteredStudents.filter(
+            (s: any) => s.major === currentSubject.major,
+          );
         }
-        
+
         setStudents(filteredStudents);
         setTotal(res.data?.total ?? 0);
       } catch (e: unknown) {
         if (cancelled) return;
-        console.error(e instanceof Error ? e.message : "Failed to load students.");
+        console.error(
+          e instanceof Error ? e.message : "Failed to load students.",
+        );
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -301,7 +294,7 @@ export default function TeacherStudentsYear() {
     return () => {
       cancelled = true;
     };
-  }, [session, year, search, page, limit]);
+  }, [session, year, search, page, limit, subjectId]);
 
   useEffect(() => {
     if (students && students.length > 0) {
@@ -311,17 +304,13 @@ export default function TeacherStudentsYear() {
       students.forEach((student) => {
         const studentId = String(student.id);
         initialMatrix[studentId] = {};
-        
-        // If student has any results, mark the row as initially saved
         if (student.results && student.results.length > 0) {
           initialSaved[studentId] = true;
         }
-
         student.results?.forEach((res: any) => {
           initialMatrix[studentId][String(res.subjectId)] = String(res.marks);
         });
       });
-
       setMarksMatrix(initialMatrix);
       setSavedRows(initialSaved);
     }
@@ -332,21 +321,20 @@ export default function TeacherStudentsYear() {
   const displaySubjects = useMemo(() => {
     if (!teacherProfile || !allYearSubjects) return [];
     return allYearSubjects.filter(
-      (sub) => sub.major === teacherProfile.major && (sub.semester === semester || !sub.semester)
+      (sub) => (sub.semester === semester || !sub.semester)
     );
   }, [allYearSubjects, teacherProfile, semester]);
 
   async function saveRow(studentId: string) {
     const studentMarks = marksMatrix[studentId];
     if (!studentMarks || Object.keys(studentMarks).length === 0) {
-      setSaveMsg("No marks entered for this student.");
+      setSaveMsg("No marks entered.");
       return;
     }
 
     setSavingRows((prev) => ({ ...prev, [studentId]: true }));
     setSaveMsg(null);
     try {
-      // Save each subject's mark for this student
       const promises = Object.entries(studentMarks).map(([sid, val]) => {
         const marks = Number(val);
         if (Number.isNaN(marks)) return Promise.resolve();
@@ -354,14 +342,13 @@ export default function TeacherStudentsYear() {
           studentId,
           subjectId: sid,
           marks,
+          year,
         });
       });
 
       await Promise.all(promises);
-      setSaveMsg(`Marks updated for student.`);
+      setSaveMsg(`Marks updated.`);
       setSavedRows((prev) => ({ ...prev, [studentId]: true }));
-      
-      // Auto-hide success message after 3 seconds
       setTimeout(() => setSaveMsg(null), 3000);
     } catch (e: unknown) {
       setSaveMsg(e instanceof Error ? e.message : "Failed to save marks.");
@@ -372,11 +359,8 @@ export default function TeacherStudentsYear() {
 
   if (isPending) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-emerald-50/50">
-        <div className="relative">
-          <div className="w-16 h-16 rounded-full border-4 border-emerald-500/20" />
-          <div className="absolute inset-0 w-16 h-16 rounded-full border-4 border-t-emerald-500 animate-spin" />
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="w-20 h-20 rounded-full border-4 border-emerald-500/10 border-t-emerald-500 animate-spin" />
       </div>
     );
   }
@@ -384,155 +368,172 @@ export default function TeacherStudentsYear() {
   if (!session) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-emerald-100">
-      {/* Dynamic Background Elements */}
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans selection:bg-emerald-100 overflow-x-hidden">
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-emerald-400/5 blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-400/5 blur-[120px]" />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-        <DashboardNav session={session} />
+      <div className="relative z-10 max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-12 pb-16">
+        <DashboardNav session={session!} />
 
-        <div className="mt-8 flex flex-col gap-8">
-          {/* Page Header */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div className="space-y-4">
+        <div className="mt-8 flex flex-col gap-10">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+            <div className="space-y-6">
               <button
                 onClick={() => navigate("/head-teacher")}
-                className="group inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-sm font-bold text-slate-600 hover:text-emerald-600 hover:border-emerald-200 transition-all shadow-sm"
+                className="group inline-flex items-center gap-2.5 px-5 py-2.5 rounded-2xl bg-white border border-slate-200 text-xs font-black uppercase tracking-widest text-slate-500 hover:text-emerald-600 hover:border-emerald-200 transition-all shadow-sm"
               >
-                <ChevronLeft className="size-4 group-hover:-translate-x-0.5 transition-transform" />
+                <ChevronLeft className="size-4 group-hover:-translate-x-1 transition-transform" />
                 Back to Dashboard
               </button>
-              <div>
-                <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 uppercase tracking-widest mb-1">
-                  <GraduationCap size={14} />
-                  Academic Grading
+
+              <div className="space-y-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[10px] font-black uppercase tracking-widest">
+                    Academic Year {yearLabel}
+                  </div>
+                  <div className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 </div>
-                <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-                  {yearLabel} <span className="text-slate-400 font-medium">Students</span>
+                <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight leading-none">
+                  Student{" "}
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-600">
+                    Registry
+                  </span>
                 </h1>
+                <p className="text-slate-400 font-medium text-lg max-w-xl">
+                  Administrative portal for managing grades, attendance, and
+                  student performance records.
+                </p>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-stretch gap-3">
-              <div className="relative min-w-[280px]">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+            <div className="flex flex-col sm:flex-row items-stretch gap-4">
+              <div className="relative group min-w-[320px]">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search name or roll no..."
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm font-medium shadow-sm outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all"
+                  placeholder="Search name or roll number..."
+                  className="h-14 w-full rounded-[1.25rem] border-2 border-transparent bg-white pl-12 pr-6 text-sm font-bold shadow-xl shadow-slate-200/50 outline-none focus:border-emerald-500/20 focus:ring-4 focus:ring-emerald-500/5 transition-all"
                 />
               </div>
-              <button 
+              <button
                 onClick={() => setArranging(!arranging)}
                 className={cn(
-                  "flex items-center justify-center gap-2 h-12 px-6 rounded-2xl font-bold text-sm transition-all border shadow-sm",
-                  arranging 
-                    ? "bg-emerald-600 border-emerald-600 text-white shadow-emerald-200" 
-                    : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                  "flex items-center justify-center gap-3 h-14 px-8 rounded-[1.25rem] font-black text-sm uppercase tracking-widest transition-all border shadow-xl active:scale-95",
+                  arranging
+                    ? "bg-slate-900 border-slate-900 text-white shadow-indigo-200"
+                    : "bg-white border-slate-100 text-slate-600 hover:bg-slate-50",
                 )}
               >
                 <Layers size={18} />
-                Manage Subjects
+                Control List
               </button>
             </div>
           </div>
 
-          {/* Mode Switcher & Date Selector */}
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-white rounded-3xl border border-slate-100 shadow-sm">
-            <div className="flex items-center gap-2 p-1.5 bg-slate-100 rounded-2xl">
-              <button
-                onClick={() => setViewMode("GRADING")}
-                className={cn(
-                  "flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
-                  viewMode === "GRADING" ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                )}
-              >
-                <ClipboardList size={14} />
-                Grading
-              </button>
-              <button
-                onClick={() => setViewMode("ATTENDANCE")}
-                className={cn(
-                  "flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
-                  viewMode === "ATTENDANCE" ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                )}
-              >
-                <CalendarCheck size={14} />
-                Attendance
-              </button>
-            </div>
-
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entry Date:</span>
-              <input 
-                type="date"
-                value={entryDate}
-                onChange={(e) => setEntryDate(e.target.value)}
-                className="h-10 px-4 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500"
-              />
-            </div>
-          </div>
-
-          {/* Year & Semester Navigation */}
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit">
-              {YEARS.map((y) => (
-                <Link
-                  key={y}
-                  to={`/head-teacher/students/${y}?semester=${semester}&mode=${viewMode.toLowerCase()}`}
-                  className={cn(
-                    "px-5 py-2 rounded-xl text-xs font-bold transition-all",
-                    y === year
-                      ? "bg-white text-emerald-600 shadow-md"
-                      : "text-slate-500 hover:text-slate-700 hover:bg-white/50",
-                  )}
-                >
-                  {y.replace("_", " ")}
-                </Link>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit">
-              {[1, 2].map((s) => (
-                <button
-                  key={s}
-                  onClick={() => {
-                    setSemester(s);
-                    // Update URL without full refresh if possible, or just use Link. 
-                    // Since it's a state, we just set it, but for consistency:
-                    navigate(`/head-teacher/students/${year}?semester=${s}&mode=${viewMode.toLowerCase()}`);
-                  }}
-                  className={cn(
-                    "px-6 py-2 rounded-xl text-xs font-bold transition-all",
-                    semester === s
-                      ? s === 1 
-                        ? "bg-amber-500 text-white shadow-md" 
-                        : "bg-indigo-600 text-white shadow-md"
-                      : "text-slate-500 hover:text-slate-700 hover:bg-white/50",
-                  )}
-                >
-                  Semester {s}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Subject Arrangement Tool */}
-          {arranging && (
-            <div className="bg-white rounded-[2rem] border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden animate-in slide-in-from-top-4 duration-300">
-              <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/50">
-                <div className="flex items-center gap-2 text-sm font-bold text-slate-800 uppercase tracking-tight">
-                  <Filter size={16} className="text-emerald-600" />
-                  Available Subjects for {yearLabel}
-                </div>
-                <p className="text-xs text-slate-500 mt-1">Assign subjects to yourself to enable grade entry for your students.</p>
+          <div className="flex flex-col xl:flex-row items-stretch gap-6">
+            <div className="flex-1 flex flex-col md:flex-row items-center gap-4 p-4 bg-white rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/30">
+              <div className="flex items-center gap-1.5 p-1.5 bg-slate-100 rounded-[1.25rem] w-full md:w-auto">
+                {(["GRADING", "ATTENDANCE"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setViewMode(mode)}
+                    className={cn(
+                      "flex-1 md:flex-none flex items-center justify-center gap-2.5 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] transition-all",
+                      viewMode === mode
+                        ? "bg-white text-emerald-600 shadow-xl shadow-slate-200"
+                        : "text-slate-400 hover:text-slate-600",
+                    )}
+                  >
+                    {mode === "GRADING" ? (
+                      <ClipboardList size={14} />
+                    ) : (
+                      <CalendarCheck size={14} />
+                    )}
+                    {mode}
+                  </button>
+                ))}
               </div>
-              <div className="p-8">
-                <div className="flex flex-wrap gap-3">
+
+              <div className="hidden md:block w-px h-8 bg-slate-100 mx-2" />
+
+              <div className="flex flex-wrap items-center gap-2">
+                {YEARS.map((y) => (
+                  <Link
+                    key={y}
+                    to={`/head-teacher/students/${y}?semester=${semester}&mode=${viewMode.toLowerCase()}`}
+                    className={cn(
+                      "px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                      y === year
+                        ? "bg-slate-900 text-white shadow-lg"
+                        : "bg-slate-50 text-slate-400 hover:text-slate-600 hover:bg-slate-100",
+                    )}
+                  >
+                    {y.split("_")[1]}
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 p-4 bg-white rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/30">
+              <div className="flex items-center gap-1.5 p-1.5 bg-slate-100 rounded-[1.25rem]">
+                {[1, 2].map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => {
+                      setSemester(s);
+                      navigate(
+                        `/head-teacher/students/${year}?semester=${s}&mode=${viewMode.toLowerCase()}`,
+                      );
+                    }}
+                    className={cn(
+                      "px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] transition-all",
+                      semester === s
+                        ? "bg-white text-indigo-600 shadow-xl shadow-slate-200"
+                        : "text-slate-400 hover:text-slate-600",
+                    )}
+                  >
+                    S{s}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-col items-end pr-2">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                  Entry Date
+                </span>
+                <input
+                  type="date"
+                  value={entryDate}
+                  onChange={(e) => setEntryDate(e.target.value)}
+                  className="bg-transparent text-sm font-bold text-slate-800 outline-none cursor-pointer"
+                />
+              </div>
+            </div>
+          </div>
+
+          {arranging && (
+            <div className="bg-white rounded-[3rem] border border-slate-100 shadow-2xl shadow-slate-200/40 overflow-hidden animate-in slide-in-from-top-6 duration-500">
+              <div className="px-10 py-8 bg-slate-900 text-white flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2 text-emerald-400 text-[10px] font-black uppercase tracking-[0.2em] mb-1">
+                    <Sparkles size={12} />
+                    Configuration Tool
+                  </div>
+                  <h3 className="text-2xl font-black tracking-tight">
+                    Manage Controlled Subjects
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setArranging(false)}
+                  className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-colors"
+                >
+                  <ChevronRight size={20} className="rotate-90" />
+                </button>
+              </div>
+              <div className="p-10">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {displaySubjects.map((sub) => {
                     const assigned = !!assignmentBySubjectId[String(sub.id)];
                     return (
@@ -540,31 +541,28 @@ export default function TeacherStudentsYear() {
                         key={sub.id}
                         onClick={() => toggleAssignment(sub)}
                         className={cn(
-                          "group flex items-center gap-3 px-5 py-3 rounded-2xl border-2 transition-all",
+                          "group relative p-6 rounded-[2rem] border-2 text-left transition-all duration-300",
                           assigned
                             ? "bg-emerald-50 border-emerald-500 text-emerald-700"
-                            : "bg-white border-slate-100 text-slate-500 hover:border-slate-200"
+                            : "bg-white border-slate-100 text-slate-400 hover:border-emerald-200 hover:bg-emerald-50/30",
                         )}
                       >
-                        <div className="flex-1 text-left">
-                          <div className="text-xs font-bold">{sub.code}</div>
-                          <div className="text-[10px] opacity-80 truncate max-w-[100px]">{sub.name}</div>
+                        <div className="flex-1 space-y-1">
+                          <p className="text-[10px] font-black uppercase tracking-widest opacity-60">
+                            {sub.code}
+                          </p>
+                          <p className="text-sm font-black leading-tight truncate">
+                            {sub.name}
+                          </p>
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="absolute top-4 right-4">
                           {assigned ? (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDeletingSubjectId(String(sub.id));
-                              }}
-                              className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-                              title="Remove Subject"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          ) : (
-                            <div className="size-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center">
+                            <div className="size-7 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-200 animate-in zoom-in duration-300">
                               <CheckCircle2 size={16} />
+                            </div>
+                          ) : (
+                            <div className="size-7 rounded-xl bg-slate-50 text-slate-300 flex items-center justify-center border border-slate-100 group-hover:bg-emerald-100 group-hover:text-emerald-500 transition-colors">
+                              <Plus size={16} />
                             </div>
                           )}
                         </div>
@@ -572,9 +570,14 @@ export default function TeacherStudentsYear() {
                     );
                   })}
                   {displaySubjects.length === 0 && (
-                    <div className="flex items-center gap-3 p-6 w-full rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-slate-500 italic text-sm">
-                      <Info size={18} />
-                      No subjects found for your major in this academic year.
+                    <div className="col-span-full py-12 flex flex-col items-center justify-center bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200">
+                      <LayoutDashboard
+                        size={40}
+                        className="text-slate-200 mb-4"
+                      />
+                      <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">
+                        No subjects found
+                      </p>
                     </div>
                   )}
                 </div>
@@ -582,211 +585,289 @@ export default function TeacherStudentsYear() {
             </div>
           )}
 
-          {/* Main Content Table Card */}
-          <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl shadow-slate-200/40 overflow-hidden">
-            <div className="px-8 py-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="size-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
-                  <Users size={20} />
+          <div className="bg-white rounded-[3.5rem] border border-slate-100 shadow-2xl shadow-slate-200/50 overflow-hidden">
+            <div className="px-10 py-10 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+              <div className="flex items-center gap-5">
+                <div className="size-16 rounded-[1.75rem] bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-xl shadow-indigo-100/50">
+                  <Users size={32} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-800">Student Directory</h3>
-                  <p className="text-xs text-slate-500 font-medium">
-                    {loading ? "Calculating..." : `${total} students enrolled`}
+                  <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+                    Active Enrollment
+                  </h3>
+                  <p className="text-slate-400 text-sm font-medium mt-1">
+                    Showing{" "}
+                    <span className="text-indigo-600 font-bold">
+                      {students.length}
+                    </span>{" "}
+                    students across all majors
                   </p>
                 </div>
               </div>
 
-              {saveMsg && (
-                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-bold animate-in fade-in zoom-in">
-                  <CheckCircle2 size={14} />
-                  {saveMsg}
-                </div>
-              )}
-
-              <div className="text-xs font-bold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg">
-                Page {page} of {totalPages}
+              <div className="flex items-center gap-4">
+                {saveMsg && (
+                  <div className="flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-emerald-500 text-white text-[11px] font-black uppercase tracking-widest shadow-xl shadow-emerald-200 animate-in slide-in-from-right-4">
+                    <Sparkles size={14} />
+                    {saveMsg}
+                  </div>
+                )}
+                {viewMode === "ATTENDANCE" && students.length > 0 && (
+                  <button
+                    onClick={saveAttendance}
+                    disabled={isAttendanceSaving}
+                    className="flex items-center gap-3 px-8 py-4 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    {isAttendanceSaving ? (
+                      <Clock className="animate-spin size-4" />
+                    ) : (
+                      <Save size={18} />
+                    )}
+                    Sync Attendance
+                  </button>
+                )}
               </div>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
+              <table className="w-full">
                 <thead>
                   <tr className="bg-slate-50/50">
-                    <th className="px-8 py-5 text-left text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 border-b border-slate-100">
-                      Student Details
+                    <th className="px-10 py-6 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                      Identity & Roll
                     </th>
-                    <th className="px-8 py-5 text-left text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 border-b border-slate-100">
-                      Contact Info
+                    <th className="px-10 py-6 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                      Access Info
                     </th>
                     {displaySubjects.map((sub) => (
                       <th
                         key={sub.id}
-                        className="px-6 py-5 text-center text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 border-b border-slate-100 min-w-[140px]"
+                        className="px-6 py-6 text-center text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 min-w-[160px]"
                       >
-                        <div className="flex flex-col items-center gap-0.5">
-                          <span className="text-emerald-600">{sub.code}</span>
-                          <span className="text-slate-400 font-bold truncate max-w-[100px]">{sub.name}</span>
+                        <div className="space-y-1">
+                          <p className="text-emerald-600">{sub.code}</p>
+                          <p className="truncate max-w-[120px] mx-auto opacity-60 font-bold">
+                            {sub.name}
+                          </p>
                         </div>
                       </th>
                     ))}
-                    <th className="px-8 py-5 text-right text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 border-b border-slate-100 sticky right-0 bg-slate-50/90 backdrop-blur-md z-10 shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.05)]">
-                      {viewMode === "ATTENDANCE" ? "Status Toggle" : "Actions"}
+                    <th className="px-10 py-6 text-right text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 sticky right-0 bg-slate-50 z-10">
+                      Management
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {!loading && students.map((s) => {
-                    const initials = s.name ? s.name.split(' ').map((n:any) => n[0]).join('').slice(0, 2).toUpperCase() : "ST";
-                    const sid_str = String(s.id);
-                    const isSaving = viewMode === "GRADING" ? savingRows[sid_str] : isAttendanceSaving;
-                    const isSaved = viewMode === "GRADING" ? savedRows[sid_str] : false;
-                    const attendance = attendanceMatrix[sid_str];
-                    
-                    return (
-                      <tr key={s.id} className="group hover:bg-slate-50/50 transition-colors">
-                        <td className="px-8 py-6">
-                          <div className="flex items-center gap-4">
-                            <div className="size-11 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 text-slate-600 font-black flex items-center justify-center text-xs shadow-sm group-hover:from-emerald-500 group-hover:to-emerald-600 group-hover:text-white transition-all duration-300">
-                              {initials}
-                            </div>
-                            <div>
-                              <div className="text-sm font-bold text-slate-800 group-hover:text-emerald-700 transition-colors">
-                                {s.name}
-                              </div>
-                              <div className="text-[11px] font-mono text-slate-400 font-medium">
-                                {s.rollNo}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-8 py-6">
-                          <div className="space-y-1.5">
-                            <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                              <Phone className="size-3.5 text-slate-300" />
-                              {s.phoneNumber ?? "—"}
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-slate-500 font-medium truncate max-w-[200px]" title={s.address}>
-                              <MapPin className="size-3.5 text-slate-300" />
-                              {s.address ?? "—"}
-                            </div>
-                          </div>
-                        </td>
-                        {viewMode === "GRADING" ? (
-                          displaySubjects.map((sub) => {
-                            const sid = String(sub.id);
-                            const value = marksMatrix[String(s.id)]?.[sid] ?? "";
-                            return (
-                              <td key={sub.id} className="px-6 py-6">
-                                <div className="relative group/input max-w-[80px] mx-auto">
-                                  <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    value={value}
-                                    onChange={(e) => {
-                                      const newVal = e.target.value.replace(/[^\d.]/g, "").slice(0, 5);
-                                      setMarksMatrix(prev => ({
-                                        ...prev,
-                                        [String(s.id)]: { ...(prev[String(s.id)] || {}), [sid]: newVal }
-                                      }));
-                                      if (savedRows[String(s.id)]) {
-                                        setSavedRows(prev => ({ ...prev, [String(s.id)]: false }));
-                                      }
-                                    }}
-                                    placeholder="0.0"
-                                    className={cn(
-                                      "h-11 w-full rounded-xl border-2 text-center text-sm font-bold outline-none transition-all shadow-sm",
-                                      value 
-                                        ? "bg-white border-emerald-100 text-emerald-700 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10" 
-                                        : "bg-slate-50 border-slate-100 text-slate-400 focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
-                                    )}
-                                  />
-                                  {value && (
-                                    <div className="absolute -top-1.5 -right-1.5 size-4 rounded-full bg-emerald-500 flex items-center justify-center shadow-sm">
-                                      <div className="size-1 bg-white rounded-full animate-pulse" />
-                                    </div>
-                                  )}
+                  {!loading &&
+                    students.map((s, idx) => {
+                      const initials = s.name
+                        ? s.name
+                            .split(" ")
+                            .map((n: any) => n[0])
+                            .join("")
+                            .slice(0, 2)
+                            .toUpperCase()
+                        : "ST";
+                      const sid_str = String(s.id);
+                      const isSaving =
+                        viewMode === "GRADING" ? savingRows[sid_str] : false;
+                      const isSaved =
+                        viewMode === "GRADING" ? savedRows[sid_str] : false;
+                      const attendance = attendanceMatrix[sid_str];
+
+                      return (
+                        <tr
+                          key={s.id}
+                          className="group hover:bg-slate-50/50 transition-all duration-300"
+                        >
+                          <td className="px-10 py-8">
+                            <div className="flex items-center gap-5">
+                              <div className="relative">
+                                <div className="size-14 rounded-[1.25rem] bg-gradient-to-br from-slate-100 to-slate-200 text-slate-600 font-black flex items-center justify-center text-sm shadow-xl shadow-slate-200/50 group-hover:from-indigo-600 group-hover:to-indigo-800 group-hover:text-white transition-all duration-500">
+                                  {initials}
                                 </div>
-                              </td>
-                            );
-                          })
-                        ) : (
-                          <td colSpan={displaySubjects.length} className="px-8 py-6">
-                            <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                              <div className="flex-1 text-xs font-bold text-slate-500 uppercase tracking-widest">
-                                Subject: <span className="text-emerald-600">{subjects.find(sub => String(sub.subject?.id) === subjectId)?.subject?.name || "Select Subject"}</span>
+                                <div className="absolute -top-1 -left-1 size-5 rounded-full bg-white border-2 border-slate-50 flex items-center justify-center text-[9px] font-black text-slate-400 group-hover:text-indigo-600 transition-colors">
+                                  {idx + 1 + (page - 1) * limit}
+                                </div>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <span className={cn(
-                                  "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter",
-                                  attendance === "PRESENT" ? "bg-emerald-100 text-emerald-700" : 
-                                  attendance === "ABSENT" ? "bg-rose-100 text-rose-700" : "bg-slate-200 text-slate-400"
-                                )}>
-                                  {attendance || "Pending"}
-                                </span>
+                              <div>
+                                <p className="text-base font-black text-slate-900 group-hover:text-indigo-600 transition-colors">
+                                  {s.name}
+                                </p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    {s.rollNo}
+                                  </span>
+                                  <div className="size-1 rounded-full bg-slate-200" />
+                                  <span className="text-[10px] font-bold text-slate-400">
+                                    {s.major}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           </td>
-                        )}
-                        
-                        <td className="px-8 py-6 text-right sticky right-0 bg-white group-hover:bg-slate-50/50 backdrop-blur-md transition-colors z-10 shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.05)]">
-                          {viewMode === "GRADING" ? (
-                            <button
-                              onClick={() => saveRow(String(s.id))}
-                              disabled={isSaving}
-                              className={cn(
-                                "inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95",
-                                isSaved
-                                  ? "bg-blue-600 text-white shadow-blue-200"
-                                  : isSaving
-                                    ? "bg-slate-100 text-slate-400 cursor-wait"
-                                    : "bg-emerald-600 text-white shadow-emerald-200 hover:bg-emerald-700 hover:shadow-lg"
-                              )}
-                            >
-                              {isSaving ? (
-                                <div className="size-4 rounded-full border-2 border-slate-300 border-t-slate-500 animate-spin" />
-                              ) : isSaved ? (
-                                <>
-                                  <CheckCircle2 size={14} />
-                                  Updated
-                                </>
-                              ) : (
-                                <>
-                                  <Save size={14} />
-                                  Save Result
-                                </>
-                              )}
-                            </button>
-                          ) : (
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                onClick={() => toggleAttendance(sid_str, "PRESENT")}
-                                className={cn(
-                                  "h-10 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
-                                  attendance === "PRESENT" 
-                                    ? "bg-emerald-600 text-white shadow-lg shadow-emerald-200" 
-                                    : "bg-white border border-slate-200 text-slate-400 hover:border-emerald-500 hover:text-emerald-500"
-                                )}
-                              >
-                                Present
-                              </button>
-                              <button
-                                onClick={() => toggleAttendance(sid_str, "ABSENT")}
-                                className={cn(
-                                  "h-10 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
-                                  attendance === "ABSENT" 
-                                    ? "bg-rose-600 text-white shadow-lg shadow-rose-200" 
-                                    : "bg-white border border-slate-200 text-slate-400 hover:border-rose-500 hover:text-rose-500"
-                                )}
-                              >
-                                Absent
-                              </button>
+                          <td className="px-10 py-8">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2.5 text-xs text-slate-500 font-bold">
+                                <div className="size-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-emerald-50 group-hover:text-emerald-500 transition-colors">
+                                  <Phone size={14} />
+                                </div>
+                                {s.phoneNumber ?? "No data"}
+                              </div>
+                              <div className="flex items-center gap-2.5 text-xs text-slate-500 font-bold truncate max-w-[180px]">
+                                <div className="size-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-amber-50 group-hover:text-amber-500 transition-colors">
+                                  <MapPin size={14} />
+                                </div>
+                                {s.address ?? "No data"}
+                              </div>
                             </div>
+                          </td>
+                          {viewMode === "GRADING" ? (
+                            displaySubjects.map((sub) => {
+                              const sid = String(sub.id);
+                              const value =
+                                marksMatrix[String(s.id)]?.[sid] ?? "";
+                              return (
+                                <td key={sub.id} className="px-6 py-8">
+                                  <div className="relative group/input max-w-[100px] mx-auto">
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      value={value}
+                                      onChange={(e) => {
+                                        const newVal = e.target.value
+                                          .replace(/[^\d.]/g, "")
+                                          .slice(0, 5);
+                                        setMarksMatrix((prev) => ({
+                                          ...prev,
+                                          [String(s.id)]: {
+                                            ...(prev[String(s.id)] || {}),
+                                            [sid]: newVal,
+                                          },
+                                        }));
+                                        if (savedRows[String(s.id)]) {
+                                          setSavedRows((prev) => ({
+                                            ...prev,
+                                            [String(s.id)]: false,
+                                          }));
+                                        }
+                                      }}
+                                      placeholder="00.0"
+                                      className={cn(
+                                        "h-14 w-full rounded-2xl border-2 text-center text-base font-black outline-none transition-all shadow-lg shadow-slate-100",
+                                        value
+                                          ? "bg-white border-emerald-500 text-emerald-700 ring-4 ring-emerald-500/5"
+                                          : "bg-slate-50 border-slate-100 text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5",
+                                      )}
+                                    />
+                                  </div>
+                                </td>
+                              );
+                            })
+                          ) : (
+                            <td
+                              colSpan={displaySubjects.length}
+                              className="px-10 py-8"
+                            >
+                              <div className="flex items-center justify-between p-6 rounded-[2rem] bg-slate-50 border border-slate-100 group-hover:bg-white group-hover:shadow-xl group-hover:shadow-slate-200/50 transition-all duration-500">
+                                <div className="flex items-center gap-4">
+                                  <div className="size-10 rounded-xl bg-white flex items-center justify-center text-emerald-600 shadow-sm">
+                                    <CalendarCheck size={20} />
+                                  </div>
+                                  <div>
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                      Target Subject
+                                    </p>
+                                    <p className="text-sm font-black text-slate-800">
+                                      {allYearSubjects.find(
+                                        (sub) => String(sub.id) === subjectId,
+                                      )?.name || "Select Subject"}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div
+                                  className={cn(
+                                    "px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                                    attendance === "PRESENT"
+                                      ? "bg-emerald-500 text-white shadow-lg shadow-emerald-200"
+                                      : attendance === "ABSENT"
+                                        ? "bg-rose-500 text-white shadow-lg shadow-rose-200"
+                                        : "bg-slate-200 text-slate-500",
+                                  )}
+                                >
+                                  {attendance || "Pending"}
+                                </div>
+                              </div>
+                            </td>
                           )}
-                        </td>
-                      </tr>
-                    );
-                  })}
+
+                          <td className="px-10 py-8 text-right sticky right-0 bg-white group-hover:bg-slate-50/50 z-10 transition-colors">
+                            {viewMode === "GRADING" ? (
+                              <button
+                                onClick={() => saveRow(String(s.id))}
+                                disabled={isSaving}
+                                className={cn(
+                                  "relative overflow-hidden inline-flex items-center justify-center gap-3 h-12 px-8 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all shadow-xl active:scale-95",
+                                  isSaved
+                                    ? "bg-indigo-600 text-white shadow-indigo-200"
+                                    : isSaving
+                                      ? "bg-slate-100 text-slate-400 cursor-wait"
+                                      : "bg-emerald-600 text-white shadow-emerald-200 hover:bg-emerald-700",
+                                )}
+                              >
+                                <div
+                                  className={cn(
+                                    "flex items-center gap-2 transition-all",
+                                    isSaving ? "opacity-0" : "opacity-100",
+                                  )}
+                                >
+                                  {isSaved ? (
+                                    <CheckCircle2 size={16} />
+                                  ) : (
+                                    <Save size={16} />
+                                  )}
+                                  {isSaved ? "Synced" : "Save Row"}
+                                </div>
+                                {isSaving && (
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                    <Clock className="size-5 animate-spin" />
+                                  </div>
+                                )}
+                              </button>
+                            ) : (
+                              <div className="flex items-center justify-end gap-3">
+                                <button
+                                  onClick={() =>
+                                    toggleAttendance(sid_str, "PRESENT")
+                                  }
+                                  className={cn(
+                                    "size-12 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-lg active:scale-90",
+                                    attendance === "PRESENT"
+                                      ? "bg-emerald-500 text-white shadow-emerald-200"
+                                      : "bg-white border-2 border-slate-100 text-slate-300 hover:border-emerald-500 hover:text-emerald-500",
+                                  )}
+                                >
+                                  <CheckCircle2 size={24} />
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    toggleAttendance(sid_str, "ABSENT")
+                                  }
+                                  className={cn(
+                                    "size-12 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-lg active:scale-90",
+                                    attendance === "ABSENT"
+                                      ? "bg-rose-500 text-white shadow-rose-200"
+                                      : "bg-white border-2 border-slate-100 text-slate-300 hover:border-rose-500 hover:text-rose-500",
+                                  )}
+                                >
+                                  <Trash2 size={24} />
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                 </tbody>
               </table>
             </div>
@@ -797,12 +878,16 @@ export default function TeacherStudentsYear() {
                 <div className="size-20 rounded-full bg-slate-50 flex items-center justify-center text-slate-200 mb-6">
                   <Users size={40} />
                 </div>
-                <h4 className="text-xl font-bold text-slate-800 mb-1">No Students Found</h4>
+                <h4 className="text-xl font-bold text-slate-800 mb-1">
+                  No Students Found
+                </h4>
                 <p className="text-slate-400 max-w-sm px-6">
-                  {search ? `No results match your search "${search}"` : "There are no students enrolled in this academic year."}
+                  {search
+                    ? `No results match your search "${search}"`
+                    : "There are no students enrolled in this academic year."}
                 </p>
                 {search && (
-                  <button 
+                  <button
                     onClick={() => setSearch("")}
                     className="mt-6 text-emerald-600 font-bold text-sm hover:underline"
                   >
@@ -813,26 +898,33 @@ export default function TeacherStudentsYear() {
             )}
 
             {/* Bulk Actions Footer */}
-            {viewMode === "ATTENDANCE" && Object.keys(attendanceMatrix).length > 0 && (
-              <div className="px-8 py-4 bg-emerald-50 border-t border-emerald-100 flex items-center justify-between animate-in slide-in-from-bottom-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-emerald-700">
-                  <CheckCircle2 size={14} />
-                  {Object.keys(attendanceMatrix).length} attendance records ready to save.
+            {viewMode === "ATTENDANCE" &&
+              Object.keys(attendanceMatrix).length > 0 && (
+                <div className="px-8 py-4 bg-emerald-50 border-t border-emerald-100 flex items-center justify-between animate-in slide-in-from-bottom-2">
+                  <div className="flex items-center gap-2 text-xs font-bold text-emerald-700">
+                    <CheckCircle2 size={14} />
+                    {Object.keys(attendanceMatrix).length} attendance records
+                    ready to save.
+                  </div>
+                  <button
+                    onClick={saveAttendance}
+                    disabled={isAttendanceSaving}
+                    className="flex items-center gap-2 h-10 px-6 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200"
+                  >
+                    {isAttendanceSaving ? "Saving..." : "Save All Attendance"}
+                  </button>
                 </div>
-                <button
-                  onClick={saveAttendance}
-                  disabled={isAttendanceSaving}
-                  className="flex items-center gap-2 h-10 px-6 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200"
-                >
-                  {isAttendanceSaving ? "Saving..." : "Save All Attendance"}
-                </button>
-              </div>
-            )}
+              )}
 
             {/* Pagination */}
             <div className="px-8 py-6 border-t border-slate-100 flex items-center justify-between gap-4 flex-wrap bg-slate-50/30">
               <div className="text-sm font-medium text-slate-400">
-                Showing <span className="text-slate-900 font-bold">{students.length}</span> of <span className="text-slate-900 font-bold">{total}</span> students
+                Showing{" "}
+                <span className="text-slate-900 font-bold">
+                  {students.length}
+                </span>{" "}
+                of <span className="text-slate-900 font-bold">{total}</span>{" "}
+                students
               </div>
               <div className="flex items-center gap-3">
                 <button
@@ -852,14 +944,18 @@ export default function TeacherStudentsYear() {
                         onClick={() => setPage(p)}
                         className={cn(
                           "size-10 rounded-xl text-xs font-bold transition-all",
-                          page === p ? "bg-emerald-600 text-white shadow-md shadow-emerald-200" : "bg-white border border-slate-100 text-slate-500 hover:border-slate-200"
+                          page === p
+                            ? "bg-emerald-600 text-white shadow-md shadow-emerald-200"
+                            : "bg-white border border-slate-100 text-slate-500 hover:border-slate-200",
                         )}
                       >
                         {p}
                       </button>
                     );
                   })}
-                  {totalPages > 5 && <span className="text-slate-400 px-1">...</span>}
+                  {totalPages > 5 && (
+                    <span className="text-slate-400 px-1">...</span>
+                  )}
                 </div>
                 <button
                   disabled={page >= totalPages || loading}
@@ -881,9 +977,12 @@ export default function TeacherStudentsYear() {
             <div className="size-16 rounded-3xl bg-rose-50 text-rose-500 flex items-center justify-center mb-6">
               <AlertCircle size={32} />
             </div>
-            <h3 className="text-xl font-black text-slate-900 mb-2">Remove Subject?</h3>
+            <h3 className="text-xl font-black text-slate-900 mb-2">
+              Remove Subject?
+            </h3>
             <p className="text-slate-500 text-sm mb-8 leading-relaxed">
-              Are you sure you want to remove this subject from your assignments? You can always re-assign it later.
+              Are you sure you want to remove this subject from your
+              assignments? You can always re-assign it later.
             </p>
             <div className="grid grid-cols-2 gap-3">
               <button

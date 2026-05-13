@@ -1,6 +1,7 @@
 import { Major, AcademicYear } from "@prisma/client";
 import * as resultRepo from "../respositry/resultRepository";
 import * as assignmentRepo from "../respositry/assignmentRepository";
+import * as subjectRepo from "../respositry/subjectRepository";
 import { ServiceError } from "./userService";
 
 // ---------------------------------------------------------------------------
@@ -146,28 +147,30 @@ export async function bulkUploadResults(
   return resultRepo.createManyResults(data);
 }
 
-export async function bulkUpsertResults(
-  teacherId: string,
-  subjectId: string,
-  major: Major,
-  year: AcademicYear,
-  records: { studentId: string; marks: number }[],
-  meta?: { semester?: number; academicYear?: string },
-) {
-  const assignment = await assignmentRepo.findTeacherAssignment(
-    teacherId,
-    subjectId,
-    major,
-    year,
-  );
-  if (!assignment) {
+export async function bulkUpsertResults(params: {
+  teacherId?: string;
+  headTeacherId?: string;
+  subjectId: string;
+  major: Major;
+  year: AcademicYear;
+  records: { studentId: string; marks: number }[];
+  meta?: { semester?: number; academicYear?: string };
+}) {
+  const { teacherId, headTeacherId, subjectId, major, year, records, meta } = params;
+
+  // Head Teacher can manage any subject in their Major
+  const subject = await subjectRepo.findSubjectById(subjectId);
+  if (!subject || subject.major !== major) {
     throw new ServiceError(
       403,
-      "Forbidden: you are not assigned to this subject for this class.",
+      "Forbidden: this subject belongs to another department.",
     );
   }
-  if (assignment.canEdit === false) {
-    throw new ServiceError(403, "Forbidden: editing is disabled for this assignment.");
+
+  // Optional: Check if editing is disabled globally for this slot (if assignment exists)
+  const assignment = await assignmentRepo.findAssignmentBySubjectClass(subjectId, major, year);
+  if (assignment && assignment.canEdit === false) {
+    throw new ServiceError(403, "Forbidden: editing is disabled for this academic slot.");
   }
 
   const mapped = records.map((r) => ({
@@ -177,6 +180,7 @@ export async function bulkUpsertResults(
 
   return resultRepo.upsertManyResults({
     teacherId,
+    headTeacherId,
     subjectId,
     major,
     year,

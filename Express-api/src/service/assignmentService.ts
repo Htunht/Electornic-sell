@@ -1,3 +1,4 @@
+import prisma from "../lib/prisma";
 import { Major, AcademicYear } from "@prisma/client";
 import * as assignmentRepo from "../respositry/assignmentRepository";
 import { ServiceError } from "./userService";
@@ -22,6 +23,34 @@ export async function getHeadTeacherAssignments(headTeacherId: string) {
 
 export async function getClassAssignments(major: Major, year: AcademicYear) {
   return assignmentRepo.findAssignmentsByClass(major, year);
+}
+
+export async function isTeacherAssignedToSubject(teacherId: string, subjectId: string) {
+  const assignments = await getTeacherAssignments(teacherId);
+  return assignments.some((a: any) => a.subjectId === subjectId);
+}
+
+export async function isHeadTeacherAssignedToSubject(headTeacherId: string, subjectId: string) {
+  const assignments = await getHeadTeacherAssignments(headTeacherId);
+  return assignments.some((a: any) => a.subjectId === subjectId);
+}
+
+export async function isFacultyAssignedToSubject(userId: string, subjectId: string) {
+  // Check if user has a teacher profile and is assigned
+  const teacher = await prisma.teacher.findUnique({ where: { userId } });
+  if (teacher) {
+    const assignments = await getTeacherAssignments(teacher.id);
+    if (assignments.some((a: any) => a.subjectId === subjectId)) return true;
+  }
+
+  // Check if user has a head teacher profile and is assigned
+  const headTeacher = await prisma.headTeacher.findUnique({ where: { userId } });
+  if (headTeacher) {
+    const assignments = await getHeadTeacherAssignments(headTeacher.id);
+    if (assignments.some((a: any) => a.subjectId === subjectId)) return true;
+  }
+
+  return false;
 }
 
 // ---------------------------------------------------------------------------

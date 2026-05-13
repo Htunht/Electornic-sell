@@ -68,8 +68,10 @@ export default function StudentDashboard() {
     if (!isPending) {
       if (!session) {
         navigate("/login");
-      } else if (session.user.role !== "STUDENT") {
+      } else if (session.user.role === "HEAD_TEACHER") {
         navigate("/head-teacher");
+      } else if (session.user.role === "TEACHER") {
+        navigate("/teacher");
       }
     }
   }, [session, isPending, navigate]);
@@ -183,7 +185,7 @@ export default function StudentDashboard() {
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
-        <DashboardNav session={session} />
+        <DashboardNav session={session!} />
 
         {/* Dynamic Hero Section */}
         <div className="mt-8 relative rounded-[3rem] overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-emerald-950 text-white p-8 md:p-14 shadow-2xl shadow-indigo-900/20">

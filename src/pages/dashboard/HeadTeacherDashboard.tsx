@@ -9,10 +9,7 @@ import {
   BookOpen, 
   ClipboardList,
   CalendarCheck,
-  FileSpreadsheet, 
   PlusCircle,
-  GraduationCap,
-  Calendar,
   LayoutDashboard,
   Trophy,
   Search,
@@ -21,16 +18,17 @@ import {
   Trash2,
   Library,
   CheckCircle2,
+  Plus,
+  AlertCircle,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-// ─── Teacher Dashboard ────────────────────────────────────────────────────────
-export default function TeacherDashboard() {
+export default function HeadTeacherDashboard() {
   const { data: session, isPending } = useSession();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"overview" | "classes" | "students" | "subjects" | "teachers">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "classes" | "students" | "subjects" | "teachers" | "approvals">("overview");
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
-  // ─── Students tab filter state ──────────────────────────────────────────────
   const [studentFilterYear, setStudentFilterYear] = useState<string | null>(null);
   const [studentFilterSem, setStudentFilterSem] = useState<number | null>(null);
   
@@ -38,6 +36,7 @@ export default function TeacherDashboard() {
   const [assignments, setAssignments] = useState<any[]>([]);
   const [allSubjects, setAllSubjects] = useState<any[]>([]);
   const [allTeachers, setAllTeachers] = useState<any[]>([]);
+  const [pendingGrades, setPendingGrades] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [showSubjectModal, setShowSubjectModal] = useState(false);
@@ -51,6 +50,7 @@ export default function TeacherDashboard() {
       return matchYear && matchSemester;
     });
   }, [allSubjects, subjectFilterYear, subjectFilterSemester]);
+
   const [editingSubject, setEditingSubject] = useState<any>(null);
   const [newSubject, setNewSubject] = useState({ code: "", name: "", year: "YEAR_1", semester: 1, creditHours: 3 });
   const [creating, setCreating] = useState(false);
@@ -80,7 +80,6 @@ export default function TeacherDashboard() {
       } else if (session.user.role === "STUDENT") {
         navigate("/student");
       } else if (session.user.role === "HEAD_TEACHER") {
-        // Stay here, but check if we need to redirect if it was /teacher
         if (window.location.pathname === "/teacher") {
           navigate("/head-teacher", { replace: true });
         }
@@ -90,29 +89,29 @@ export default function TeacherDashboard() {
 
   const fetchData = async () => {
     try {
-      const [profileRes, assignmentsRes, subjectsRes, announcementsRes, teachersRes] = await Promise.all([
+      const [profileRes, assignmentsRes, subjectsRes, announcementsRes, teachersRes, pendingGradesRes] = await Promise.all([
         headTeacherApi.getMe(),
         headTeacherApi.getAssignments(),
         headTeacherApi.getSubjects(),
         headTeacherApi.getAnnouncements(),
         headTeacherApi.getTeachers(),
+        headTeacherApi.getPendingGradeSubmissions(),
       ]);
       setTeacherData(profileRes.data);
       setAssignments(assignmentsRes.data?.assignments ?? []);
       setAllSubjects(Array.isArray(subjectsRes.data) ? subjectsRes.data : []);
       setAnnouncements(announcementsRes.data?.data ?? []);
       setAllTeachers(Array.isArray(teachersRes.data) ? teachersRes.data : []);
+      setPendingGrades(Array.isArray(pendingGradesRes.data) ? pendingGradesRes.data : []);
     } catch (error) {
-      console.error("Error fetching teacher data:", error);
+      console.error("Error fetching data:", error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (session) {
-      fetchData();
-    }
+    if (session) fetchData();
   }, [session]);
 
   const handleCreateSubject = async (e: React.FormEvent) => {
@@ -129,9 +128,8 @@ export default function TeacherDashboard() {
       setShowSubjectModal(false);
       setEditingSubject(null);
       setNewSubject({ code: "", name: "", year: "YEAR_1", semester: 1, creditHours: 3 });
-      await fetchData(); // Refresh
+      await fetchData();
     } catch (error) {
-      console.error("Error saving subject:", error);
       showNotification("Failed to save subject.", "error");
     } finally {
       setCreating(false);
@@ -145,13 +143,19 @@ export default function TeacherDashboard() {
       showNotification("Subject deleted from department library.", "success");
       await fetchData();
     } catch (error) {
-      console.error("Error deleting subject:", error);
       showNotification("Failed to delete subject.", "error");
     }
   };
+
   const openEditModal = (subject: any) => {
     setEditingSubject(subject);
     setNewSubject({ code: subject.code, name: subject.name, year: subject.year || "YEAR_1", semester: subject.semester || 1, creditHours: subject.creditHours || 3 });
+    setShowSubjectModal(true);
+  };
+
+  const openCreateModal = () => {
+    setEditingSubject(null);
+    setNewSubject({ code: "", name: "", year: "YEAR_1", semester: 1, creditHours: 3 });
     setShowSubjectModal(true);
   };
 
@@ -165,7 +169,6 @@ export default function TeacherDashboard() {
       showNotification(`Assigned "${subject.name}" to your list!`, "success");
       await fetchData();
     } catch (error) {
-      console.error("Error assigning subject:", error);
       showNotification("Failed to assign subject.", "error");
     }
   };
@@ -177,7 +180,6 @@ export default function TeacherDashboard() {
       showNotification("Subject removed from your list.", "success");
       await fetchData();
     } catch (error) {
-      console.error("Error unassigning subject:", error);
       showNotification("Failed to remove assignment.", "error");
     }
   };
@@ -187,31 +189,54 @@ export default function TeacherDashboard() {
     setTimeout(() => setNotification(null), 3000);
   };
 
-  const openCreateModal = () => {
-    setEditingSubject(null);
-    setNewSubject({ code: "", name: "", year: "YEAR_1", semester: 1, creditHours: 3 });
-    setShowSubjectModal(true);
-  };
-
   const handleCreateAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreatingAnnouncement(true);
     try {
-      await headTeacherApi.createAnnouncement({
-        ...newAnnouncement,
-        headTeacherId: teacherData.id,
-        major: newAnnouncement.major === "ALL" ? undefined : newAnnouncement.major,
-        year: newAnnouncement.year === "ALL" ? undefined : newAnnouncement.year,
-      } as any);
-      showNotification("Announcement posted!", "success");
+      await headTeacherApi.createAnnouncement(newAnnouncement);
+      showNotification("Announcement published!", "success");
       setShowAnnouncementModal(false);
       setNewAnnouncement({ title: "", content: "", type: "GENERAL", major: "ALL", year: "ALL" });
       await fetchData();
     } catch (error) {
-      console.error("Error creating announcement:", error);
       showNotification("Failed to create announcement.", "error");
     } finally {
       setCreatingAnnouncement(false);
+    }
+  };
+
+  const handleApproveGrade = async (id: string) => {
+    if (!confirm("Are you sure you want to approve this grade?")) return;
+    try {
+      await headTeacherApi.approveGradeSubmission(id);
+      showNotification("Grade approved and saved to results.", "success");
+      await fetchData();
+    } catch (error) {
+      showNotification("Failed to approve grade.", "error");
+    }
+  };
+
+  const handleRejectGrade = async (id: string) => {
+    const note = prompt("Optional reason for rejection:");
+    if (note === null) return; // cancelled
+    try {
+      await headTeacherApi.rejectGradeSubmission(id, note);
+      showNotification("Grade rejected.", "success");
+      await fetchData();
+    } catch (error) {
+      showNotification("Failed to reject grade.", "error");
+    }
+  };
+
+  const handleBulkApprove = async () => {
+    if (pendingGrades.length === 0) return;
+    if (!confirm(`Approve all ${pendingGrades.length} pending grades?`)) return;
+    try {
+      await headTeacherApi.bulkApproveGradeSubmissions(pendingGrades.map(g => g.id));
+      showNotification(`Successfully approved ${pendingGrades.length} grades.`, "success");
+      await fetchData();
+    } catch (error) {
+      showNotification("Failed to bulk approve grades.", "error");
     }
   };
 
@@ -225,15 +250,13 @@ export default function TeacherDashboard() {
         canEdit: true
       });
       showNotification(`Subject assigned to ${selectedTeacher.user?.name}`, "success");
-      setAssignmentSuccess(true);
-      setTimeout(() => setAssignmentSuccess(false), 3000);
-      
       await fetchData();
-      // Refresh selected teacher in modal
       const updatedTeacher = allTeachers.find(t => t.id === selectedTeacher.id);
       setSelectedTeacher(updatedTeacher);
+      
+      setAssignmentSuccess(true);
+      setTimeout(() => setAssignmentSuccess(false), 2500);
     } catch (error) {
-      console.error("Error assigning to teacher:", error);
       showNotification("Failed to assign subject.", "error");
     } finally {
       setIsAssigning(false);
@@ -246,11 +269,9 @@ export default function TeacherDashboard() {
       await headTeacherApi.deleteAssignment(assignmentId);
       showNotification("Assignment removed.", "success");
       await fetchData();
-      // Refresh selected teacher in modal
       const updatedTeacher = allTeachers.find(t => t.id === selectedTeacher.id);
       setSelectedTeacher(updatedTeacher);
     } catch (error) {
-      console.error("Error removing assignment:", error);
       showNotification("Failed to remove assignment.", "error");
     }
   };
@@ -267,21 +288,14 @@ export default function TeacherDashboard() {
       showNotification("Announcement deleted.", "success");
       await fetchData();
     } catch (error) {
-      console.error("Error deleting announcement:", error);
       showNotification("Failed to delete announcement.", "error");
     }
   };
 
   if (isPending || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-emerald-50/50">
-        <div className="relative">
-          <div className="w-20 h-20 rounded-full border-4 border-emerald-500/20" />
-          <div className="absolute inset-0 w-20 h-20 rounded-full border-4 border-t-emerald-500 border-r-emerald-500/30 animate-spin" />
-          <div className="mt-8 text-center">
-            <p className="text-emerald-700 font-bold tracking-widest text-sm uppercase animate-pulse">Initializing</p>
-          </div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="w-20 h-20 rounded-full border-4 border-emerald-500/10 border-t-emerald-500 animate-spin" />
       </div>
     );
   }
@@ -289,189 +303,189 @@ export default function TeacherDashboard() {
   if (!session || !teacherData) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-emerald-100 selection:text-emerald-900">
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans selection:bg-emerald-100 overflow-x-hidden">
       {/* Dynamic Background Elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-emerald-400/10 blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-400/10 blur-[120px]" />
-        <div className="absolute top-[20%] right-[15%] w-[300px] h-[300px] rounded-full bg-yellow-200/10 blur-[100px]" />
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-emerald-400/5 blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-400/5 blur-[120px]" />
+        <div className="absolute top-[20%] right-[15%] w-[300px] h-[300px] rounded-full bg-yellow-200/5 blur-[100px]" />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
-        <DashboardNav session={session} />
+      <div className="relative z-10 max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-12 pb-20">
+        <DashboardNav session={session!} />
 
         {/* Floating Notification */}
         {notification && (
           <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-8 duration-500">
-            <div className={`flex items-center gap-3 px-6 py-4 rounded-[1.5rem] shadow-2xl backdrop-blur-xl border ${
+            <div className={`flex items-center gap-3 px-8 py-4 rounded-2xl shadow-2xl backdrop-blur-xl border ${
               notification.type === "success" 
-                ? "bg-emerald-500/90 border-emerald-400 text-white" 
-                : "bg-rose-500/90 border-rose-400 text-white"
+                ? "bg-emerald-500 border-emerald-400 text-white" 
+                : "bg-rose-500 border-rose-400 text-white"
             }`}>
-              {notification.type === "success" ? <Trophy size={18} /> : <BookOpen size={18} />}
-              <span className="font-bold tracking-tight text-sm">{notification.message}</span>
+              {notification.type === "success" ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+              <span className="font-black uppercase tracking-widest text-xs">{notification.message}</span>
             </div>
           </div>
         )}
 
         {/* Hero Header */}
-        <div className="mt-8 relative rounded-[2.5rem] overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900 text-white p-8 md:p-12 shadow-2xl shadow-emerald-900/20">
-          <div className="absolute top-0 right-0 p-8 opacity-10 hidden lg:block">
-            <GraduationCap size={240} strokeWidth={1} />
+        <div className="mt-8 relative rounded-[3.5rem] overflow-hidden bg-slate-900 text-white p-10 md:p-16 shadow-2xl shadow-emerald-900/10">
+          <div className="absolute top-0 right-0 p-12 opacity-5 hidden lg:block">
+            <BookOpen size={320} strokeWidth={1} />
           </div>
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="px-4 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-widest">
-                Teacher Dashboard
-              </span>
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          
+          <div className="relative z-10 max-w-3xl">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-[0.2em]">
+                Faculty Administration
+              </div>
+              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             </div>
-            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-2">
-              {greeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-emerald-500">{session.user.name?.split(' ')[0] || "Teacher"}</span>!
+            
+            <h1 className="text-5xl md:text-7xl font-black tracking-tight leading-[0.95] mb-6">
+              {greeting}, <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-teal-500">
+                {session.user.name?.split(' ')[0] || "Admin"}
+              </span>
             </h1>
-            <p className="text-slate-400 text-lg max-w-xl font-medium">
-              Manage your subjects, students, and grading all in one place. Your major is <span className="text-white">{teacherData.major || "Not set"}</span>.
+            
+            <p className="text-slate-400 text-lg md:text-xl font-medium leading-relaxed max-w-2xl mb-10">
+              Department lead for <span className="text-white font-bold">{teacherData.major || "Computing"}</span>. 
+              Manage academic resources, faculty assignments, and institutional announcements.
             </p>
             
-            <div className="mt-10 flex flex-wrap gap-4">
+            <div className="flex flex-wrap gap-4">
               <button 
                 onClick={openCreateModal}
-                className="group flex items-center gap-2 px-6 py-3.5 bg-emerald-500 text-white rounded-2xl shadow-xl shadow-emerald-500/30 hover:bg-emerald-400 transition-all font-bold text-sm"
+                className="group flex items-center gap-3 px-8 py-4 bg-emerald-500 text-slate-900 rounded-2xl shadow-xl shadow-emerald-500/20 hover:bg-emerald-400 transition-all font-black text-xs uppercase tracking-widest"
               >
-                <PlusCircle size={20} /> 
-                Add New Subject
-                <ArrowRight size={16} className="ml-1 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                <Plus size={20} /> 
+                Create Subject
+                <ArrowRight size={16} className="ml-1 transition-transform group-hover:translate-x-1" />
               </button>
-              <button className="flex items-center gap-2 px-6 py-3.5 bg-white/10 backdrop-blur-md border border-white/10 text-white rounded-2xl hover:bg-white/20 transition-all font-bold text-sm">
-                <FileSpreadsheet size={20} /> Export Reports
+              <button className="flex items-center gap-3 px-8 py-4 bg-white/5 backdrop-blur-md border border-white/10 text-white rounded-2xl hover:bg-white/10 transition-all font-black text-xs uppercase tracking-widest">
+                <LayoutDashboard size={20} /> 
+                System Reports
               </button>
             </div>
           </div>
         </div>
 
         {/* Analytics Grid */}
-        <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <PremiumStatCard 
-            label="Assignments" 
-            value={assignments.length} 
-            icon={<BookOpen size={24} />} 
-            gradient="from-blue-500 to-indigo-600"
-            subtext="Active subjects"
-          />
+        <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <PremiumStatCard 
             label="Department" 
             value={teacherData.major || "IT"} 
             icon={<LayoutDashboard size={24} />} 
+            gradient="from-indigo-500 to-violet-600"
+            subtext="Primary Focus"
+          />
+          <PremiumStatCard 
+            label="Assignments" 
+            value={assignments.length} 
+            icon={<BookOpen size={24} />} 
             gradient="from-emerald-500 to-teal-600"
-            subtext="Primary Major"
+            subtext="Active Subjects"
           />
           <PremiumStatCard 
-            label="Upcoming" 
-            value="3" 
-            icon={<Calendar size={24} />} 
+            label="Faculty" 
+            value={allTeachers.length} 
+            icon={<Users size={24} />} 
             gradient="from-amber-500 to-orange-600"
-            subtext="Exams this week"
+            subtext="Active Teachers"
           />
           <PremiumStatCard 
-            label="Success Rate" 
-            value="84%" 
+            label="System Health" 
+            value="Optimal" 
             icon={<Trophy size={24} />} 
             gradient="from-rose-500 to-pink-600"
-            subtext="Average grading"
+            subtext="99.9% Uptime"
           />
         </div>
 
         {/* Main Content Area */}
-        <div className="mt-12 bg-white/60 backdrop-blur-xl rounded-[2.5rem] border border-white shadow-xl shadow-slate-200/50 overflow-hidden">
-          <div className="flex flex-col sm:flex-row items-center justify-between px-8 pt-8 pb-4 border-b border-slate-100">
-            <div className="flex gap-1 p-1.5 bg-slate-100/80 rounded-2xl mb-4 sm:mb-0">
-              {(["overview", "classes", "students", "subjects", "teachers"] as const).map((tab) => (
+        <div className="mt-16 bg-white rounded-[3.5rem] border border-slate-100 shadow-2xl shadow-slate-200/40 overflow-hidden">
+          <div className="flex flex-col xl:flex-row items-center justify-between px-10 py-10 border-b border-slate-50 gap-8">
+            <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-slate-100 rounded-[1.5rem]">
+              {(["overview", "classes", "students", "subjects", "teachers", "approvals"] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`px-6 py-2.5 text-sm font-bold capitalize rounded-xl transition-all ${
+                  className={cn(
+                    "px-8 py-3.5 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all",
                     activeTab === tab 
-                      ? "bg-white text-emerald-600 shadow-sm" 
-                      : "text-slate-500 hover:text-slate-700 hover:bg-white/50"
-                  }`}
+                      ? "bg-white text-emerald-600 shadow-xl shadow-slate-200" 
+                      : "text-slate-400 hover:text-slate-600"
+                  )}
                 >
                   {tab}
                 </button>
               ))}
             </div>
             
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+            <div className="relative group w-full xl:w-80">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
               <input 
-                placeholder="Quick search..."
-                className="w-full h-10 pl-10 pr-4 bg-white rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+                placeholder="Search resources..."
+                className="w-full h-14 pl-12 pr-6 bg-slate-50 rounded-2xl border-2 border-transparent text-sm font-bold focus:bg-white focus:border-emerald-500/20 focus:ring-4 focus:ring-emerald-500/5 outline-none transition-all"
               />
             </div>
           </div>
 
-          <div className="p-8">
+          <div className="p-10">
             {activeTab === "overview" && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                <div className="lg:col-span-2 space-y-8">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+                <div className="lg:col-span-2 space-y-10">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xl font-bold text-slate-800 tracking-tight">Recent Assignments</h3>
-                    <button onClick={() => setActiveTab("classes")} className="text-emerald-600 text-sm font-bold hover:underline">View All</button>
+                    <div>
+                      <h3 className="text-2xl font-black text-slate-900 tracking-tight">Assigned Subjects</h3>
+                      <p className="text-slate-400 text-sm font-medium">Your personal teaching workload for this session.</p>
+                    </div>
+                    <button onClick={() => setActiveTab("classes")} className="text-emerald-600 text-xs font-black uppercase tracking-widest hover:text-emerald-700">View All</button>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {assignments.length > 0 ? assignments.slice(0, 4).map(asgn => (
                       <CreativeClassCard key={asgn.id} asgn={asgn} />
                     )) : (
-                      <div className="col-span-full py-12 text-center bg-slate-50 rounded-3xl border border-dashed border-slate-200">
-                        <BookOpen size={40} className="mx-auto text-slate-300 mb-4" />
-                        <p className="text-slate-500 font-medium">No assignments yet. Add your first subject!</p>
+                      <div className="col-span-full py-20 text-center bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-100">
+                        <BookOpen size={48} className="mx-auto text-slate-200 mb-6" />
+                        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No active assignments found.</p>
                       </div>
                     )}
                   </div>
                 </div>
                 
-                <div className="space-y-8">
+                <div className="space-y-10">
                   <CreativeCalendar canEdit={true} />
                   
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xl font-bold text-slate-800 tracking-tight">Announcements</h3>
-                    <button 
-                      onClick={() => setShowAnnouncementModal(true)}
-                      className="group p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
-                      title="Post New Announcement"
-                    >
-                      <PlusCircle size={20} />
-                    </button>
-                  </div>
-                  <div className="space-y-4">
-                    {announcements.length > 0 ? announcements.map(ann => (
-                      <AnnouncementCard 
-                        key={ann.id}
-                        title={ann.title}
-                        date={new Date(ann.createdAt).toLocaleDateString()}
-                        content={ann.content}
-                        type={ann.type.toLowerCase() as any}
-                        onDelete={() => handleDeleteAnnouncement(ann.id)}
-                        canDelete={true}
-                      />
-                    )) : (
-                      <div className="py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                        <p className="text-slate-400 text-xs font-medium">No announcements broadcasted yet.</p>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="p-6 rounded-[2rem] bg-gradient-to-br from-indigo-600 to-violet-700 text-white shadow-lg shadow-indigo-200">
-                    <h4 className="font-bold text-lg mb-2">Need Help?</h4>
-                    <p className="text-indigo-100 text-sm mb-6 leading-relaxed">Check out our teacher guide for detailed instructions on grading and subject management.</p>
-                    <button className="w-full py-3 bg-white text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-colors mb-3">
-                      View Documentation
-                    </button>
-                    <button 
-                      onClick={() => setShowAnnouncementModal(true)}
-                      className="w-full py-3 bg-indigo-500/30 text-white border border-indigo-400/30 rounded-xl font-bold text-sm hover:bg-indigo-500/50 transition-colors"
-                    >
-                      Post Announcement
-                    </button>
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xl font-black text-slate-900 tracking-tight">Newsroom</h3>
+                      <button 
+                        onClick={() => setShowAnnouncementModal(true)}
+                        className="size-10 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-500 hover:text-white flex items-center justify-center transition-all shadow-sm"
+                      >
+                        <Plus size={20} />
+                      </button>
+                    </div>
+                    <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                      {announcements.length > 0 ? announcements.map(ann => (
+                        <AnnouncementCard 
+                          key={ann.id}
+                          title={ann.title}
+                          date={new Date(ann.createdAt).toLocaleDateString()}
+                          content={ann.content}
+                          type={ann.type.toLowerCase() as any}
+                          onDelete={() => handleDeleteAnnouncement(ann.id)}
+                          canDelete={true}
+                        />
+                      )) : (
+                        <div className="py-10 text-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-100">
+                          <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">No active bulletins</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -484,98 +498,97 @@ export default function TeacherDashboard() {
                 ))}
                 <button 
                   onClick={openCreateModal}
-                  className="group flex flex-col items-center justify-center p-8 rounded-[2rem] border-2 border-dashed border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition-all text-slate-400 hover:text-emerald-600"
+                  className="group flex flex-col items-center justify-center p-12 rounded-[2.5rem] border-2 border-dashed border-slate-100 hover:border-emerald-500 hover:bg-emerald-50/50 transition-all text-slate-300 hover:text-emerald-600"
                 >
-                  <div className="w-14 h-14 rounded-full bg-slate-50 group-hover:bg-emerald-100 flex items-center justify-center mb-4 transition-colors">
-                    <PlusCircle size={28} />
+                  <div className="size-16 rounded-2xl bg-slate-50 group-hover:bg-emerald-100 flex items-center justify-center mb-6 transition-colors shadow-sm">
+                    <Plus size={32} />
                   </div>
-                  <span className="font-bold">Add Subject</span>
+                  <span className="font-black text-xs uppercase tracking-widest">Add New Subject</span>
                 </button>
               </div>
             )}
 
             {activeTab === "students" && (
-              <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="max-w-2xl">
-                  <h3 className="text-2xl font-bold text-slate-800 tracking-tight">Student & Attendance Management</h3>
-                  <p className="text-slate-500 mt-2 text-base leading-relaxed">
-                    Select an academic year and semester to access student directories, record attendance, and manage examination results for your department.
+              <div className="space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-700">
+                <div className="max-w-3xl">
+                  <h3 className="text-3xl font-black text-slate-900 tracking-tight leading-none mb-4">Registry Access</h3>
+                  <p className="text-slate-400 font-medium text-lg">
+                    Access deep student records and attendance registers by selecting the academic period.
                   </p>
                 </div>
 
-                {/* Step 1: Select Year */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest">
-                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-slate-200 text-[10px] text-slate-600">1</span>
-                    Select Academic Year
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
+                  <div className="space-y-6 p-10 bg-slate-50 rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-200/20">
+                    <div className="flex items-center gap-3 text-[10px] font-black text-indigo-600 uppercase tracking-widest">
+                      <div className="size-6 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-700">1</div>
+                      Academic Year
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      {["YEAR_1", "YEAR_2", "YEAR_3", "YEAR_4", "YEAR_5", "YEAR_6"].map((y) => (
+                        <button
+                          key={y}
+                          onClick={() => {
+                            setStudentFilterYear(y);
+                            setStudentFilterSem(null);
+                          }}
+                          className={cn(
+                            "px-4 py-4 rounded-2xl border-2 text-[11px] font-black uppercase tracking-widest transition-all",
+                            studentFilterYear === y
+                              ? "bg-slate-900 border-slate-900 text-white shadow-xl shadow-indigo-100"
+                              : "bg-white border-white text-slate-400 hover:border-emerald-100 hover:text-emerald-600"
+                          )}
+                        >
+                          {y.split('_')[1]} Year
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-3">
-                    {["YEAR_1", "YEAR_2", "YEAR_3", "YEAR_4", "YEAR_5", "YEAR_6"].map((y) => (
-                      <button
-                        key={y}
-                        onClick={() => {
-                          setStudentFilterYear(y);
-                          setStudentFilterSem(null); // Reset semester when year changes
-                        }}
-                        className={`px-6 py-3 rounded-2xl border-2 font-bold text-sm transition-all duration-300 ${
-                          studentFilterYear === y
-                            ? "bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-200"
-                            : "bg-white border-slate-100 text-slate-600 hover:border-emerald-200 hover:bg-emerald-50"
-                        }`}
-                      >
-                        {y.replace("_", " ")}
-                      </button>
-                    ))}
+
+                  <div className={`space-y-6 p-10 bg-slate-50 rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-200/20 transition-all duration-500 ${studentFilterYear ? "opacity-100 translate-x-0" : "opacity-30 pointer-events-none"}`}>
+                    <div className="flex items-center gap-3 text-[10px] font-black text-indigo-600 uppercase tracking-widest">
+                      <div className="size-6 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-700">2</div>
+                      Semester Term
+                    </div>
+                    <div className="flex gap-4">
+                      {[1, 2].map((sem) => (
+                        <button
+                          key={sem}
+                          onClick={() => setStudentFilterSem(sem)}
+                          className={cn(
+                            "flex-1 flex flex-col items-center justify-center h-28 rounded-[2rem] border-2 transition-all duration-500",
+                            studentFilterSem === sem
+                              ? "bg-emerald-600 border-emerald-600 text-white shadow-xl shadow-emerald-200"
+                              : "bg-white border-white text-slate-400 hover:border-emerald-100 hover:text-emerald-600"
+                          )}
+                        >
+                          <span className="text-3xl font-black mb-1">S{sem}</span>
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em]">Term {sem}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                {/* Step 2: Select Semester (only visible if year selected) */}
-                <div className={`space-y-4 transition-all duration-500 ${studentFilterYear ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"}`}>
-                  <div className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest">
-                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-slate-200 text-[10px] text-slate-600">2</span>
-                    Select Semester
-                  </div>
-                  <div className="flex gap-4">
-                    {[1, 2].map((sem) => (
-                      <button
-                        key={sem}
-                        onClick={() => setStudentFilterSem(sem)}
-                        className={`group relative flex flex-col items-center justify-center w-40 h-28 rounded-[2rem] border-2 transition-all duration-300 ${
-                          studentFilterSem === sem
-                            ? "bg-slate-900 border-slate-900 text-white shadow-xl"
-                            : "bg-white border-slate-100 text-slate-400 hover:border-emerald-200 hover:text-emerald-600"
-                        }`}
-                      >
-                        <span className={`text-3xl font-black mb-1 ${studentFilterSem === sem ? "text-emerald-400" : "text-slate-200 group-hover:text-emerald-100"}`}>S{sem}</span>
-                        <span className="text-xs font-bold uppercase tracking-widest">Semester {sem}</span>
-                        {studentFilterSem === sem && (
-                          <div className="absolute -top-2 -right-2 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg animate-in zoom-in">
-                            <CheckCircle2 size={14} className="text-white" />
-                          </div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Step 3: Action (only visible if both selected) */}
-                <div className={`transition-all duration-500 ${studentFilterYear && studentFilterSem ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"}`}>
-                  <div className="p-8 rounded-[2.5rem] bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-100 flex flex-col md:flex-row items-center justify-between gap-6">
-                    <div className="flex items-center gap-5">
-                      <div className="w-16 h-16 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-200">
-                        <Users size={32} />
+                <div className={`transition-all duration-700 ${studentFilterYear && studentFilterSem ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"}`}>
+                  <div className="p-12 rounded-[3.5rem] bg-gradient-to-br from-slate-900 to-slate-800 text-white flex flex-col md:flex-row items-center justify-between gap-10 shadow-2xl shadow-indigo-900/20">
+                    <div className="flex items-center gap-8">
+                      <div className="size-24 rounded-[2rem] bg-emerald-500 text-slate-900 flex items-center justify-center shadow-2xl shadow-emerald-500/20">
+                        <Users size={48} />
                       </div>
                       <div>
-                        <h4 className="text-xl font-bold text-slate-900">{studentFilterYear?.replace("_", " ")}</h4>
-                        <p className="text-emerald-700 font-medium">Semester {studentFilterSem} Portal</p>
+                        <div className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-full w-fit mb-2">
+                          Portal Ready
+                        </div>
+                        <h4 className="text-4xl font-black tracking-tight">{studentFilterYear?.replace("_", " ")} Registry</h4>
+                        <p className="text-slate-400 font-medium text-lg">Semester {studentFilterSem} administrative data access.</p>
                       </div>
                     </div>
                     <button
-                    onClick={() => navigate(`/head-teacher/students/${studentFilterYear}?semester=${studentFilterSem}`)}
-                      className="group flex items-center gap-3 px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold text-lg hover:bg-emerald-600 transition-all shadow-xl hover:shadow-emerald-200"
+                      onClick={() => navigate(`/head-teacher/students/${studentFilterYear}?semester=${studentFilterSem}`)}
+                      className="group flex items-center gap-4 px-10 py-5 bg-white text-slate-900 rounded-[1.5rem] font-black text-xs uppercase tracking-[0.2em] hover:bg-emerald-400 transition-all active:scale-95"
                     >
-                      Access Management
-                      <ArrowRight size={20} className="transition-transform group-hover:translate-x-1" />
+                      Enter Portal
+                      <ArrowRight size={20} className="transition-transform group-hover:translate-x-2" />
                     </button>
                   </div>
                 </div>
@@ -583,127 +596,136 @@ export default function TeacherDashboard() {
             )}
 
             {activeTab === "subjects" && (
-              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                  <div>
-                    <h3 className="text-2xl font-bold text-slate-800 tracking-tight">Subject Library</h3>
-                    <p className="text-slate-500 mt-1 text-sm">
-                      Manage subjects across all academic years for your major.
+              <div className="space-y-10 animate-in fade-in slide-in-from-bottom-6 duration-700">
+                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-8">
+                  <div className="max-w-2xl">
+                    <h3 className="text-3xl font-black text-slate-900 tracking-tight leading-none mb-4">Subject Library</h3>
+                    <p className="text-slate-400 font-medium text-lg leading-relaxed">
+                      Department-wide library of available courses. Manage credit hours, syllabus assignment, and global subject data.
                     </p>
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                    <select
-                      value={subjectFilterYear}
-                      onChange={e => setSubjectFilterYear(e.target.value)}
-                      className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all cursor-pointer"
-                    >
-                      <option value="ALL">All Years</option>
-                      {["YEAR_1","YEAR_2","YEAR_3","YEAR_4","YEAR_5","YEAR_6"].map(y => (
-                        <option key={y} value={y}>{y.replace("_", " ")}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={subjectFilterSemester}
-                      onChange={e => setSubjectFilterSemester(e.target.value)}
-                      className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all cursor-pointer"
-                    >
-                      <option value="ALL">All Semesters</option>
-                      <option value="1">Semester 1</option>
-                      <option value="2">Semester 2</option>
-                    </select>
+                  <div className="flex flex-wrap items-center gap-4 w-full xl:w-auto">
+                    <div className="flex-1 min-w-[140px] relative">
+                      <select
+                        value={subjectFilterYear}
+                        onChange={e => setSubjectFilterYear(e.target.value)}
+                        className="w-full h-12 rounded-xl bg-slate-50 border border-slate-100 px-4 text-xs font-black uppercase tracking-widest appearance-none outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500 transition-all cursor-pointer"
+                      >
+                        <option value="ALL">All Years</option>
+                        {["YEAR_1","YEAR_2","YEAR_3","YEAR_4","YEAR_5","YEAR_6"].map(y => (
+                          <option key={y} value={y}>{y.replace("_", " ")}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex-1 min-w-[140px] relative">
+                      <select
+                        value={subjectFilterSemester}
+                        onChange={e => setSubjectFilterSemester(e.target.value)}
+                        className="w-full h-12 rounded-xl bg-slate-50 border border-slate-100 px-4 text-xs font-black uppercase tracking-widest appearance-none outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500 transition-all cursor-pointer"
+                      >
+                        <option value="ALL">All Semesters</option>
+                        <option value="1">Term 1</option>
+                        <option value="2">Term 2</option>
+                      </select>
+                    </div>
                     <button 
                       onClick={openCreateModal}
-                      className="flex items-center justify-center gap-2 px-5 h-10 bg-slate-900 text-white rounded-xl text-sm font-bold shadow-lg hover:bg-slate-800 transition-colors"
+                      className="flex items-center justify-center gap-3 px-8 h-12 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-slate-200 hover:bg-black transition-all active:scale-95"
                     >
-                      <PlusCircle size={18} />
-                      New Subject
+                      <Plus size={18} />
+                      Add Subject
                     </button>
                   </div>
                 </div>
                 
-                <div className="bg-white border border-slate-200 rounded-[2rem] overflow-hidden shadow-sm">
-                  <div className="overflow-x-auto pb-2">
-                    <table className="w-full border-collapse text-left min-w-[750px]">
+                <div className="bg-white border border-slate-100 rounded-[2.5rem] overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
                       <thead>
-                        <tr className="bg-slate-50/80 border-b border-slate-100">
-                          <th className="px-4 sm:px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Code</th>
-                          <th className="px-4 sm:px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Subject Name</th>
-                          <th className="px-4 sm:px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Year</th>
-                          <th className="px-4 sm:px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">Semester</th>
-                          <th className="px-4 sm:px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">Credits</th>
-                          <th className="px-4 sm:px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Actions</th>
+                        <tr className="bg-slate-50/50">
+                          <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Identity</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Course Description</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Classification</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Semester</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Credits</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100">
+                      <tbody className="divide-y divide-slate-50">
                         {filteredSubjects.map((sub: any) => (
-                          <tr key={sub.id} className="hover:bg-slate-50/50 transition-colors group">
-                            <td className="px-4 sm:px-6 py-4">
-                              <span className="font-mono text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200 whitespace-nowrap">
+                          <tr key={sub.id} className="hover:bg-slate-50/30 transition-all group">
+                            <td className="px-8 py-6">
+                              <span className="font-black text-xs text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100">
                                 {sub.code}
                               </span>
                             </td>
-                            <td className="px-4 sm:px-6 py-4 font-bold text-slate-800 text-sm">
-                              {sub.name}
+                            <td className="px-8 py-6">
+                              <p className="font-black text-slate-800 text-base">{sub.name}</p>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Faculty of {teacherData.major}</p>
                             </td>
-                            <td className="px-4 sm:px-6 py-4">
-                              <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-widest border border-emerald-100 whitespace-nowrap">
-                                {sub.year.replace("_", " ")}
-                              </span>
+                            <td className="px-8 py-6">
+                              <div className="flex items-center gap-2">
+                                <div className="size-2 rounded-full bg-emerald-500" />
+                                <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">
+                                  {sub.year.replace("_", " ")}
+                                </span>
+                              </div>
                             </td>
-                            <td className="px-4 sm:px-6 py-4 text-center">
-                              <span className={`inline-flex items-center justify-center w-8 h-8 rounded-xl text-xs font-black border-2 ${
+                            <td className="px-8 py-6 text-center">
+                              <span className={cn(
+                                "inline-flex items-center justify-center size-10 rounded-xl text-xs font-black shadow-sm border",
                                 sub.semester === 2 
                                   ? "bg-indigo-50 text-indigo-600 border-indigo-100" 
                                   : "bg-amber-50 text-amber-600 border-amber-100"
-                              }`}>
+                              )}>
                                 S{sub.semester ?? 1}
                               </span>
                             </td>
-                            <td className="px-4 sm:px-6 py-4 text-center font-bold text-slate-600 text-sm">
+                            <td className="px-8 py-6 text-center font-black text-slate-700">
                               {sub.creditHours || 3}
                             </td>
-                              <td className="px-4 sm:px-6 py-4">
-                               <div className="flex items-center justify-end gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                                 {assignments.some(a => a.subjectId === sub.id) ? (
-                                   <button 
-                                     onClick={() => handleUnassign(assignments.find(a => a.subjectId === sub.id)!.id)}
-                                     className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white flex items-center justify-center transition-all"
-                                     title="Un-assign from Me"
-                                   >
-                                     <Trash2 size={14} />
-                                   </button>
-                                 ) : (
-                                   <button 
-                                     onClick={() => handleAssignToMe(sub)}
-                                     className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white flex items-center justify-center transition-all"
-                                     title="Assign to Me"
-                                   >
-                                     <PlusCircle size={14} />
-                                   </button>
-                                 )}
-                                 <button 
-                                   onClick={() => openEditModal(sub)}
-                                   className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center transition-colors"
-                                   title="Edit Subject"
-                                 >
-                                   <Edit2 size={14} />
-                                 </button>
-                                 <button 
-                                   onClick={() => handleDeleteSubject(sub.id)}
-                                   className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-600 flex items-center justify-center transition-colors"
-                                   title="Delete Subject Globally"
-                                 >
-                                   <Trash2 size={14} />
-                                 </button>
-                               </div>
-                             </td>
+                            <td className="px-8 py-6 text-right">
+                              <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                                {assignments.some(a => a.subjectId === sub.id) ? (
+                                  <button 
+                                    onClick={() => handleUnassign(assignments.find(a => a.subjectId === sub.id)!.id)}
+                                    className="size-10 rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white flex items-center justify-center transition-all shadow-sm"
+                                    title="Un-assign from Me"
+                                  >
+                                    <Trash2 size={18} />
+                                  </button>
+                                ) : (
+                                  <button 
+                                    onClick={() => handleAssignToMe(sub)}
+                                    className="size-10 rounded-xl bg-emerald-50 text-emerald-500 hover:bg-emerald-500 hover:text-white flex items-center justify-center transition-all shadow-sm"
+                                    title="Assign to Me"
+                                  >
+                                    <Plus size={18} />
+                                  </button>
+                                )}
+                                <button 
+                                  onClick={() => openEditModal(sub)}
+                                  className="size-10 rounded-xl bg-slate-50 text-slate-400 hover:bg-indigo-500 hover:text-white flex items-center justify-center transition-all shadow-sm"
+                                  title="Edit Subject"
+                                >
+                                  <Edit2 size={16} />
+                                </button>
+                                <button 
+                                  onClick={() => handleDeleteSubject(sub.id)}
+                                  className="size-10 rounded-xl bg-slate-50 text-slate-400 hover:bg-rose-500 hover:text-white flex items-center justify-center transition-all shadow-sm"
+                                  title="Global Delete"
+                                >
+                                  <Trash2 size={18} />
+                                </button>
+                              </div>
+                            </td>
                           </tr>
                         ))}
                         {filteredSubjects.length === 0 && (
                           <tr>
-                            <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
-                              <Library size={32} className="mx-auto mb-3 opacity-20" />
-                              <p className="font-medium">No subjects found.</p>
+                            <td colSpan={6} className="px-10 py-24 text-center">
+                              <Library size={64} className="mx-auto mb-6 text-slate-100" />
+                              <p className="font-black text-slate-300 uppercase tracking-widest text-xs">Library empty for selected criteria</p>
                             </td>
                           </tr>
                         )}
@@ -715,60 +737,65 @@ export default function TeacherDashboard() {
             )}
 
             {activeTab === "teachers" && (
-              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="max-w-2xl">
-                  <h3 className="text-2xl font-bold text-slate-800 tracking-tight">Faculty & Assignments</h3>
-                  <p className="text-slate-500 mt-2 text-base leading-relaxed">
-                    View all teachers in your department and their current subject assignments.
+              <div className="space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-700">
+                <div className="max-w-3xl">
+                  <h3 className="text-3xl font-black text-slate-900 tracking-tight leading-none mb-4">Faculty Registry</h3>
+                  <p className="text-slate-400 font-medium text-lg leading-relaxed">
+                    Overview of department faculty members and their active teaching assignments. Manage workload and course distribution.
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
                   {allTeachers.map((teacher: any) => (
-                    <div key={teacher.id} className="group relative bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-500 overflow-hidden">
-                      {/* Decoration */}
-                      <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-50 rounded-full group-hover:bg-emerald-100 transition-colors duration-500" />
+                    <div key={teacher.id} className="group relative bg-white rounded-[3rem] border border-slate-100 p-10 shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden">
+                      <div className="absolute -top-12 -right-12 size-40 bg-slate-50 rounded-full group-hover:bg-emerald-50 transition-colors duration-700" />
                       
-                      <div className="relative z-10 flex flex-col h-full">
-                        <div className="flex items-center gap-4 mb-6">
-                          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-700 text-white flex items-center justify-center text-xl font-black shadow-lg">
+                      <div className="relative z-10">
+                        <div className="flex items-center gap-6 mb-10">
+                          <div className="size-20 rounded-[1.75rem] bg-slate-900 text-white flex items-center justify-center text-3xl font-black shadow-2xl shadow-slate-900/20 group-hover:bg-indigo-600 transition-colors duration-500">
                             {teacher.user?.name?.charAt(0) || "T"}
                           </div>
                           <div>
-                            <h4 className="font-black text-slate-900 truncate max-w-[150px]">{teacher.user?.name}</h4>
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{teacher.major}</p>
+                            <h4 className="text-2xl font-black text-slate-900 tracking-tight">{teacher.user?.name}</h4>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{teacher.major} Faculty</p>
+                            </div>
                           </div>
                         </div>
 
-                        <div className="space-y-4 flex-1">
-                          <div className="flex items-center justify-between text-xs font-black text-slate-400 uppercase tracking-widest px-1">
-                            <span>Assigned Subjects</span>
-                            <span className="text-emerald-600">{teacher.assignments?.length || 0}</span>
+                        <div className="space-y-6">
+                          <div className="flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">
+                            <span>Assignments</span>
+                            <div className="size-6 rounded-lg bg-slate-100 flex items-center justify-center text-slate-900 group-hover:bg-indigo-100 group-hover:text-indigo-700 transition-colors">
+                              {teacher.assignments?.length || 0}
+                            </div>
                           </div>
                           
-                          <div className="space-y-2 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
+                          <div className="space-y-3 max-h-[220px] overflow-y-auto pr-3 custom-scrollbar">
                             {teacher.assignments?.length > 0 ? (
                               teacher.assignments.map((asgn: any) => (
-                                <div key={asgn.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100 group-hover:bg-white group-hover:border-emerald-100 transition-all">
-                                  <div className="flex justify-between items-start mb-1">
-                                    <span className="font-mono text-[10px] font-black text-emerald-600">{asgn.subject?.code}</span>
-                                    <span className="px-2 py-0.5 rounded-full bg-slate-200 text-[8px] font-black uppercase tracking-tight">{asgn.year.replace("_", " ")}</span>
+                                <div key={asgn.id} className="p-4 rounded-[1.25rem] bg-slate-50 border border-slate-50 group-hover:bg-white group-hover:border-emerald-100 group-hover:shadow-lg group-hover:shadow-emerald-900/5 transition-all">
+                                  <div className="flex justify-between items-center mb-1.5">
+                                    <span className="font-black text-[10px] text-emerald-600 tracking-wider">{asgn.subject?.code}</span>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase">{asgn.year.replace("_", " ")}</span>
                                   </div>
-                                  <p className="text-xs font-bold text-slate-700 truncate">{asgn.subject?.name}</p>
+                                  <p className="text-xs font-bold text-slate-700 leading-tight">{asgn.subject?.name}</p>
                                 </div>
                               ))
                             ) : (
-                              <p className="text-xs text-slate-400 italic text-center py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">No active assignments</p>
+                              <div className="py-12 flex flex-col items-center justify-center bg-slate-50 rounded-[1.5rem] border-2 border-dashed border-slate-100">
+                                <Library size={32} className="text-slate-200 mb-3" />
+                                <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No Active Workload</p>
+                              </div>
                             )}
                           </div>
-                        </div>
 
-                        <div className="mt-8 pt-6 border-t border-slate-100">
                           <button 
                             onClick={() => openTeacherModal(teacher)}
-                            className="mt-6 w-full py-4 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 transition-all active:scale-[0.98]"
+                            className="w-full mt-6 py-4 rounded-2xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.2em] hover:bg-indigo-600 transition-all shadow-xl active:scale-95"
                           >
-                            Manage Profile
+                            Workload Portal
                           </button>
                         </div>
                       </div>
@@ -777,32 +804,132 @@ export default function TeacherDashboard() {
                 </div>
               </div>
             )}
+
+            {activeTab === "approvals" && (
+              <div className="space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-700">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8">
+                  <div className="max-w-3xl">
+                    <h3 className="text-3xl font-black text-slate-900 tracking-tight leading-none mb-4">Grade Approvals</h3>
+                    <p className="text-slate-400 font-medium text-lg leading-relaxed">
+                      Review and authorize student grades submitted by faculty members. Approved grades are instantly published to student records.
+                    </p>
+                  </div>
+                  {pendingGrades.length > 0 && (
+                    <button 
+                      onClick={handleBulkApprove}
+                      className="flex items-center gap-3 px-8 py-4 bg-emerald-500 text-slate-900 rounded-2xl shadow-xl shadow-emerald-500/20 hover:bg-emerald-400 transition-all font-black text-xs uppercase tracking-widest"
+                    >
+                      <CheckCircle2 size={20} />
+                      Approve All ({pendingGrades.length})
+                    </button>
+                  )}
+                </div>
+
+                {pendingGrades.length > 0 ? (
+                  <div className="bg-white border border-slate-100 rounded-[3rem] overflow-hidden shadow-sm">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50/50">
+                            <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Faculty</th>
+                            <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Student Identity</th>
+                            <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Subject</th>
+                            <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Marks</th>
+                            <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Grade</th>
+                            <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                          {pendingGrades.map((grade) => (
+                            <tr key={grade.id} className="hover:bg-slate-50/30 transition-all group">
+                              <td className="px-8 py-6">
+                                <div className="flex items-center gap-4">
+                                  <div className="size-10 rounded-xl bg-slate-100 flex items-center justify-center font-bold text-slate-600">
+                                    {grade.teacher?.user?.name?.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <p className="font-black text-slate-800 text-sm">{grade.teacher?.user?.name}</p>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Faculty</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-8 py-6">
+                                <p className="font-black text-slate-800 text-sm">{grade.student?.name}</p>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{grade.student?.rollNo}</p>
+                              </td>
+                              <td className="px-8 py-6">
+                                <span className="font-black text-[10px] text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100">
+                                  {grade.subject?.code}
+                                </span>
+                                <p className="text-xs font-bold text-slate-500 mt-1.5 truncate max-w-[200px]">{grade.subject?.name}</p>
+                              </td>
+                              <td className="px-8 py-6 text-center">
+                                <span className="text-xl font-black text-slate-900">{grade.marks}</span>
+                              </td>
+                              <td className="px-8 py-6 text-center">
+                                <span className={cn(
+                                  "inline-flex items-center justify-center min-w-[3.5rem] h-10 px-4 rounded-xl text-xs font-black shadow-sm border",
+                                  ["A+", "A"].includes(grade.grade) ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
+                                  ["B+", "B"].includes(grade.grade) ? "bg-indigo-50 text-indigo-600 border-indigo-100" :
+                                  ["C+", "C"].includes(grade.grade) ? "bg-amber-50 text-amber-600 border-amber-100" :
+                                  "bg-rose-50 text-rose-600 border-rose-100"
+                                )}>
+                                  {grade.grade}
+                                </span>
+                              </td>
+                              <td className="px-8 py-6 text-right">
+                                <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                                  <button
+                                    onClick={() => handleRejectGrade(grade.id)}
+                                    className="size-11 rounded-2xl bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white flex items-center justify-center transition-all shadow-sm"
+                                    title="Reject Submission"
+                                  >
+                                    <Trash2 size={20} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleApproveGrade(grade.id)}
+                                    className="size-11 rounded-2xl bg-emerald-50 text-emerald-500 hover:bg-emerald-500 hover:text-white flex items-center justify-center transition-all shadow-xl shadow-emerald-500/10"
+                                    title="Approve Submission"
+                                  >
+                                    <CheckCircle2 size={20} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-32 flex flex-col items-center justify-center bg-slate-50 rounded-[4rem] border-2 border-dashed border-slate-100">
+                    <div className="size-24 rounded-[2.5rem] bg-white flex items-center justify-center shadow-xl shadow-slate-200/50 mb-8">
+                      <CheckCircle2 size={48} className="text-emerald-300" />
+                    </div>
+                    <h4 className="text-2xl font-black text-slate-900 mb-2">Clear Records</h4>
+                    <p className="text-slate-400 font-medium text-lg">No pending grade submissions require review at this time.</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* ── Creative Subject Modal ── */}
       {showSubjectModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-slate-950/70 backdrop-blur-lg"
-            onClick={() => setShowSubjectModal(false)}
-          />
-
-          {/* Modal Card */}
-          <div className="relative w-full max-w-3xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-300 flex flex-col md:flex-row">
-            
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6 lg:p-8 animate-in fade-in duration-300">
+          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-xl" onClick={() => setShowSubjectModal(false)} />
+          <div className="relative w-full max-w-4xl bg-white rounded-[3.5rem] shadow-2xl overflow-hidden flex flex-col md:flex-row animate-in zoom-in-95 duration-500">
             {/* ── Left Decorative Panel (50%) ── */}
-            <div className="relative hidden md:flex flex-1 flex-col justify-between p-10 bg-gradient-to-br from-slate-900 via-emerald-950 to-slate-900 text-white overflow-hidden">
+            <div className="relative hidden md:flex w-5/12 bg-slate-900 p-12 text-white overflow-hidden flex-col justify-between">
               {/* Glow blobs */}
               <div className="absolute top-0 left-0 w-full h-full">
                 <div className="absolute -top-1/4 -left-1/4 w-full h-full rounded-full bg-emerald-500/10 blur-[100px]" />
-                <div className="absolute -bottom-1/4 -right-1/4 w-full h-full rounded-full bg-teal-500/10 blur-[100px]" />
               </div>
 
               <div className="relative z-10 my-auto flex flex-col items-center text-center">
-                <div className="w-16 h-16 rounded-3xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center mb-8 shadow-2xl shadow-emerald-500/20">
+                <div className="size-16 rounded-3xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center mb-8 shadow-2xl shadow-emerald-500/20">
                   <BookOpen size={32} className="text-emerald-400" />
                 </div>
                 <h2 className="text-4xl font-black leading-tight mb-4 tracking-tight">
@@ -862,7 +989,7 @@ export default function TeacherDashboard() {
                 className="hidden md:flex absolute top-5 right-5 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 items-center justify-center text-slate-500 transition-colors z-10"
               >✕</button>
 
-              <form onSubmit={handleCreateSubject} className="flex-1 flex flex-col p-8 md:p-10 gap-6 overflow-y-auto">
+              <form onSubmit={handleCreateSubject} className="flex-1 flex flex-col p-8 md:p-10 gap-6 overflow-y-auto max-h-[85vh]">
                 
                 {/* Code + Name - Stacked for better readability in 50/50 split */}
                 <div className="space-y-5">

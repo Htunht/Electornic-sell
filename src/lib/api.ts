@@ -42,10 +42,34 @@ export const headTeacherApi = {
   bulkUpsertAttendance: (data: any) =>
     api.post("/head-teachers/attendance/bulk", data),
 
+  saveStudentMarks: (data: { studentId: string; subjectId: string; marks: number; year: string }) =>
+    api.post("/head-teachers/results/bulk", { 
+      subjectId: data.subjectId, 
+      year: data.year,
+      records: [{ studentId: data.studentId, marks: data.marks }] 
+    }),
+
+  saveBulkAttendance: (data: { subjectId: string; year: string; attendanceData: any[] }) =>
+    api.post("/head-teachers/attendance/bulk", {
+      subjectId: data.subjectId,
+      year: data.year,
+      date: data.attendanceData[0]?.date,
+      records: data.attendanceData.map(d => ({ studentId: d.studentId, status: d.status }))
+    }),
+
   getAnnouncements: () => api.get("/head-teachers/announcements"),
   createAnnouncement: (data: { title: string; content: string; type: string; major?: string; year?: string }) =>
     api.post("/head-teachers/announcements", data),
   deleteAnnouncement: (id: string) => api.delete(`/head-teachers/announcements/${id}`),
+
+  // Grade submission review (teacher proposals → head-teacher confirms)
+  getPendingGradeSubmissions: () => api.get("/head-teachers/grade-submissions/pending"),
+  approveGradeSubmission: (id: string, reviewNote?: string) =>
+    api.post(`/head-teachers/grade-submissions/${id}/approve`, { reviewNote }),
+  bulkApproveGradeSubmissions: (ids: string[]) =>
+    api.post("/head-teachers/grade-submissions/bulk-approve", { ids }),
+  rejectGradeSubmission: (id: string, reviewNote?: string) =>
+    api.post(`/head-teachers/grade-submissions/${id}/reject`, { reviewNote }),
 };
 
 export const teacherApi = {
@@ -62,21 +86,25 @@ export const teacherApi = {
   getStudents: (params?: { year?: string; search?: string; page?: number; limit?: number }) =>
     api.get("/teachers/students", { params }),
 
-  saveStudentMarks: (data: { studentId: string; subjectId: string; marks: number }) =>
+  saveStudentMarks: (data: { studentId: string; subjectId: string; marks: number; year: string }) =>
     api.post("/teachers/results/bulk", { 
       subjectId: data.subjectId, 
+      year: data.year,
       records: [{ studentId: data.studentId, marks: data.marks }] 
     }),
 
-  saveBulkAttendance: (data: { subjectId: string; attendanceData: any[] }) =>
+  saveBulkAttendance: (data: { subjectId: string; year: string; attendanceData: any[] }) =>
     api.post("/teachers/attendance/bulk", {
       subjectId: data.subjectId,
+      year: data.year,
       date: data.attendanceData[0]?.date,
-      year: "YEAR_1", // This should be dynamic but let's match the old logic
       records: data.attendanceData.map(d => ({ studentId: d.studentId, status: d.status }))
     }),
 
   getAnnouncements: () => api.get("/teachers/announcements"),
+
+  // View teacher's own submitted grades and their status
+  getGradeSubmissions: () => api.get("/teachers/grade-submissions"),
 };
 
 export const calendarApi = {

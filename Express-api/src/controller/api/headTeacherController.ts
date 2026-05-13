@@ -6,6 +6,7 @@ import * as studentService from "../../service/studentService";
 import * as resultService from "../../service/resultService";
 import * as attendanceService from "../../service/attendanceService";
 import * as assignmentService from "../../service/assignmentService";
+import * as gradeSubmissionService from "../../service/gradeSubmissionService";
 import { ServiceError } from "../../service/userService";
 import { AcademicYear, AttendanceStatus } from "@prisma/client";
 
@@ -189,17 +190,25 @@ export async function bulkUpsertResults(
         .json({ message: "subjectId, year, and records are required." });
     }
 
-    const result = await resultService.bulkUpsertResults(
-      headTeacher.id,
+    // Permission check: Head Teacher can manage any subject in their Major
+    const subject = await subjectService.getSubjectById(subjectId);
+    if (subject.major !== headTeacher.major) {
+      return res.status(403).json({ 
+        message: "Forbidden: This subject belongs to another department." 
+      });
+    }
+
+    const result = await resultService.bulkUpsertResults({
+      headTeacherId: headTeacher.id,
       subjectId,
-      headTeacher.major,
+      major: headTeacher.major,
       year,
       records,
-      {
+      meta: {
         semester,
         academicYear,
       },
-    );
+    });
     return res.json(result);
   } catch (error) {
     return handleError(res, error);
@@ -223,6 +232,14 @@ export async function bulkUpsertAttendance(
       return res
         .status(400)
         .json({ message: "subjectId, year, date, and records are required." });
+    }
+
+    // Permission check: Head Teacher can manage any subject in their Major
+    const subject = await subjectService.getSubjectById(subjectId);
+    if (subject.major !== headTeacher.major) {
+      return res.status(403).json({ 
+        message: "Forbidden: This subject belongs to another department." 
+      });
     }
 
     const dt = new Date(date);
@@ -337,6 +354,58 @@ export async function assignSubjectToTeacher(req: AuthenticatedRequest, res: Res
     });
 
     return res.status(201).json(assignment);
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Grade Submission Review Endpoints
+// ---------------------------------------------------------------------------
+
+export async function getPendingGradeSubmissions(req: AuthenticatedRequest, res: Response) {
+  try {
+    const headTeacher = await headTeacherService.getHeadTeacherByUserId(req.user.id);
+    const submissions = await gradeSubmissionService.getPendingSubmissions(headTeacher.major);
+    return res.json(submissions);
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
+
+export async function approveGradeSubmission(req: AuthenticatedRequest, res: Response) {
+  try {
+    const headTeacher = await headTeacherService.getHeadTeacherByUserId(req.user.id);
+    const { id } = req.params as { id: string };
+    const { reviewNote } = req.body as { reviewNote?: string };
+    const result = await gradeSubmissionService.approveSubmission(id, headTeacher.id, reviewNote);
+    return res.json(result);
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
+
+export async function bulkApproveGradeSubmissions(req: AuthenticatedRequest, res: Response) {
+  try {
+    const headTeacher = await headTeacherService.getHeadTeacherByUserId(req.user.id);
+    const { ids } = req.body as { ids: string[] };
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: "ids array is required." });
+    }
+    const result = await gradeSubmissionService.bulkApproveSubmissions(ids, headTeacher.id);
+    return res.json(result);
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
+
+export async function rejectGradeSubmission(req: AuthenticatedRequest, res: Response) {
+  try {
+    const headTeacher = await headTeacherService.getHeadTeacherByUserId(req.user.id);
+    const { id } = req.params as { id: string };
+    const { reviewNote } = req.body as { reviewNote?: string };
+    const result = await gradeSubmissionService.rejectSubmission(id, headTeacher.id, reviewNote);
+    return res.json(result);
   } catch (error) {
     return handleError(res, error);
   }

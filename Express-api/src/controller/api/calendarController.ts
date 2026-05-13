@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthenticatedRequest } from "../../middleware/auth";
 import * as calendarService from "../../service/calendarService";
 import * as headTeacherService from "../../service/headTeacherService";
+import * as teacherService from "../../service/teacherService";
 import { ServiceError } from "../../service/userService";
 
 export async function getMyEvents(req: AuthenticatedRequest, res: Response) {
@@ -23,14 +24,23 @@ export async function saveEvent(req: AuthenticatedRequest, res: Response) {
   try {
     const { date, title, description } = req.body;
 
-    // Must use HeadTeacher ID, not User ID
-    const headTeacher = await headTeacherService.getHeadTeacherByUserId(req.user.id);
+    let teacherId: string | undefined;
+    let headTeacherId: string | undefined;
+
+    if (req.user.role === "HEAD_TEACHER") {
+      const ht = await headTeacherService.getHeadTeacherByUserId(req.user.id);
+      headTeacherId = ht.id;
+    } else {
+      const t = await teacherService.getTeacherByUserId(req.user.id);
+      teacherId = t.id;
+    }
 
     const event = await calendarService.upsertEvent({
       date,
       title,
       description,
-      teacherId: headTeacher.id,
+      teacherId,
+      headTeacherId,
     });
 
     return res.json({ success: true, data: event });

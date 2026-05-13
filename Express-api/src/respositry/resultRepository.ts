@@ -113,7 +113,8 @@ export async function createManyResults(
 }
 
 export async function upsertManyResults(params: {
-  teacherId: string;
+  teacherId?: string;
+  headTeacherId?: string;
   subjectId: string;
   major: Major;
   year: AcademicYear;
@@ -133,6 +134,7 @@ export async function upsertManyResults(params: {
         studentId: r.studentId,
         subjectId: params.subjectId,
         teacherId: params.teacherId,
+        headTeacherId: params.headTeacherId,
         marks: r.marks,
         grade: r.grade,
         major: params.major,
@@ -142,6 +144,7 @@ export async function upsertManyResults(params: {
       },
       update: {
         teacherId: params.teacherId,
+        headTeacherId: params.headTeacherId,
         marks: r.marks,
         grade: r.grade,
         major: params.major,

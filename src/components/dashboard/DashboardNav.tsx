@@ -1,28 +1,37 @@
 import { signOut } from "../../lib/auth-client";
 import { LogOut, Bell, GraduationCap, Settings, User, ChevronDown } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { cn } from "@/lib/utils";
 
 interface NavProps {
-  session: { user: { name?: string | null; email: string; image?: string | null } };
+  session: any;
 }
 
 export default function DashboardNav({ session }: NavProps) {
+  const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   return (
     <header className="relative flex items-center justify-between py-6 z-50">
       {/* Brand */}
-      <div className="flex items-center gap-4">
+      <div 
+        onClick={() => {
+          if (session.user.role === "HEAD_TEACHER") navigate("/head-teacher");
+          else if (session.user.role === "TEACHER") navigate("/teacher");
+          else navigate("/student");
+        }}
+        className="flex items-center gap-4 cursor-pointer group/logo"
+      >
         <div className="relative group">
-          <div className="absolute -inset-1.5 bg-gradient-to-br from-emerald-400 to-green-600 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200" />
-          <div className="relative w-11 h-11 rounded-2xl bg-slate-900 flex items-center justify-center shadow-xl shadow-emerald-900/10">
+          <div className="absolute -inset-1.5 bg-gradient-to-br from-emerald-400 to-green-600 rounded-2xl blur opacity-25 group-hover/logo:opacity-40 transition duration-1000 group-hover/logo:duration-200" />
+          <div className="relative w-11 h-11 rounded-2xl bg-slate-900 flex items-center justify-center shadow-xl shadow-emerald-900/10 group-hover/logo:scale-105 transition-transform">
             <GraduationCap size={22} className="text-white" />
           </div>
         </div>
         <div>
-          <h1 className="text-lg font-black text-slate-900 tracking-tight leading-none mb-1">UniPortal</h1>
+          <h1 className="text-lg font-black text-slate-900 tracking-tight leading-none mb-1 group-hover/logo:text-emerald-600 transition-colors">UniPortal</h1>
           <div className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">Management System</p>
@@ -48,7 +57,7 @@ export default function DashboardNav({ session }: NavProps) {
             </div>
             <div className="hidden sm:block text-left">
               <p className="text-sm font-bold text-slate-800 leading-none mb-0.5">{session.user.name?.split(' ')[0] || "User"}</p>
-              <p className="text-[10px] text-slate-400 font-medium">Faculty Member</p>
+              <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">{session.user.role?.replace('_', ' ') || "Faculty Member"}</p>
             </div>
             <ChevronDown size={14} className={cn("text-slate-400 transition-transform", userMenuOpen && "rotate-180")} />
           </button>

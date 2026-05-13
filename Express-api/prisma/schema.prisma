@@ -51,6 +51,12 @@ enum AnnouncementType {
   GENERAL
 }
 
+enum GradeSubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 // --- MODELS ---
 
 model User {
@@ -144,6 +150,9 @@ model HeadTeacher {
   attendance     Attendance[]
   announcements  Announcement[]
   calendarEvents CalendarEvent[]
+  
+  // Grade submission reviews
+  reviewedSubmissions GradeSubmission[] @relation("ReviewedBy")
 
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
@@ -167,6 +176,9 @@ model Teacher {
   announcements  Announcement[]
   calendarEvents CalendarEvent[]
 
+  // Grade submissions waiting for head-teacher approval
+  gradeSubmissions GradeSubmission[]
+
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
@@ -189,6 +201,7 @@ model Student {
   submissions Submission[]
   results     Result[]
   attendance  Attendance[]
+  gradeSubmissions GradeSubmission[]
 
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -212,6 +225,7 @@ model Subject {
   submissions    Submission[]
   results        Result[]
   attendance     Attendance[]
+  gradeSubmissions GradeSubmission[]
 
   // Indexing for faster subject lookups per major/year/semester
   @@index([major, year, semester])
@@ -251,6 +265,50 @@ model SubjectAssignment {
   @@index([headTeacherId])
   @@index([major, year])
   @@map("subject_assignments")
+}
+
+// ---------------------------------------------------------------------------
+// GradeSubmission — teacher proposes marks; head-teacher approves/rejects.
+// Only APPROVED submissions are promoted to the Result table.
+// ---------------------------------------------------------------------------
+model GradeSubmission {
+  id          String                @id @default(cuid())
+
+  teacherId   String
+  teacher     Teacher               @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  studentId   String
+  student     Student               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  subjectId   String
+  subject     Subject               @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  marks       Float
+  grade       String                // Calculated from marks
+
+  semester    Int                   @default(1)
+  academicYear String               @default("2025-2026")
+
+  major       Major
+  year        AcademicYear
+
+  status      GradeSubmissionStatus @default(PENDING)
+
+  // Set when head-teacher acts on this submission
+  reviewedById String?
+  reviewedBy   HeadTeacher?         @relation("ReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt   DateTime?
+  reviewNote   String?              // Optional rejection reason
+
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  // One pending submission per student per subject (teachers can re-submit)
+  @@unique([teacherId, studentId, subjectId])
+
+  @@index([status, major])
+  @@index([teacherId])
+  @@map("grade_submissions")
 }
 
 model QuestionPaper {

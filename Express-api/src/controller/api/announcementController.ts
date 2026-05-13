@@ -6,14 +6,15 @@ const announcementRepo = new AnnouncementRepository();
 export const createAnnouncement = async (req: Request, res: Response) => {
   try {
     const { title, content, type, teacherId, headTeacherId, major, year } = req.body;
+    
     const announcement = await announcementRepo.createAnnouncement({
       title,
       content,
       type,
       teacherId,
       headTeacherId,
-      major,
-      year,
+      major: major === "ALL" ? undefined : major,
+      year: year === "ALL" ? undefined : year,
     });
     res.status(201).json({ success: true, data: announcement });
   } catch (error: any) {
@@ -25,8 +26,8 @@ export const getAnnouncements = async (req: Request, res: Response) => {
   try {
     const { major, year } = req.query;
     const announcements = await announcementRepo.getAnnouncements({
-      major: major as any,
-      year: year as any,
+      major: major === "ALL" ? undefined : major as any,
+      year: year === "ALL" ? undefined : year as any,
     });
     res.status(200).json({ success: true, data: announcements });
   } catch (error: any) {

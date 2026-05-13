@@ -23,6 +23,7 @@ export async function upsertEvent(data: {
   title: string;
   description?: string;
   teacherId?: string;
+  headTeacherId?: string;
 }) {
   return calendarRepo.upsertEvent(data);
 }

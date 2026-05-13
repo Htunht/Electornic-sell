@@ -149,6 +149,32 @@ router.delete(
   announcementController.deleteAnnouncement as unknown as RequestHandler,
 );
 
+// Grade submission review
+router.get(
+  "/head-teachers/grade-submissions/pending",
+  authGuard,
+  requireRole("HEAD_TEACHER"),
+  headTeacherController.getPendingGradeSubmissions as unknown as RequestHandler,
+);
+router.post(
+  "/head-teachers/grade-submissions/:id/approve",
+  authGuard,
+  requireRole("HEAD_TEACHER"),
+  headTeacherController.approveGradeSubmission as unknown as RequestHandler,
+);
+router.post(
+  "/head-teachers/grade-submissions/bulk-approve",
+  authGuard,
+  requireRole("HEAD_TEACHER"),
+  headTeacherController.bulkApproveGradeSubmissions as unknown as RequestHandler,
+);
+router.post(
+  "/head-teachers/grade-submissions/:id/reject",
+  authGuard,
+  requireRole("HEAD_TEACHER"),
+  headTeacherController.rejectGradeSubmission as unknown as RequestHandler,
+);
+
 // ---------------------------------------------------------------------------
 // Teacher APIs (Regular)
 // ---------------------------------------------------------------------------
@@ -194,6 +220,12 @@ router.post(
   requireRole("TEACHER"),
   teacherController.bulkUpsertResults as unknown as RequestHandler,
 );
+router.get(
+  "/teachers/grade-submissions",
+  authGuard,
+  requireRole("TEACHER"),
+  teacherController.getMySubmissions as unknown as RequestHandler,
+);
 router.post(
   "/teachers/attendance/bulk",
   authGuard,
@@ -218,7 +250,6 @@ router.get(
 router.post(
   "/calendar/events",
   authGuard,
-  requireRole("HEAD_TEACHER"),
   calendarController.saveEvent as unknown as RequestHandler,
 );
 

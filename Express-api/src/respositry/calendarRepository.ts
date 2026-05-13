@@ -36,10 +36,11 @@ export async function upsertEvent(data: {
   title: string;
   description?: string;
   teacherId?: string;
+  headTeacherId?: string;
 }) {
   const eventDate = new Date(data.date);
-  // Reset to start of day for consistency
-  eventDate.setHours(0, 0, 0, 0);
+  // Reset to start of day (UTC) for consistency
+  eventDate.setUTCHours(0, 0, 0, 0);
 
   return await prisma.calendarEvent.upsert({
     where: { date: eventDate },
@@ -47,12 +48,14 @@ export async function upsertEvent(data: {
       title: data.title,
       description: data.description,
       teacherId: data.teacherId,
+      headTeacherId: data.headTeacherId,
     },
     create: {
       date: eventDate,
       title: data.title,
       description: data.description,
       teacherId: data.teacherId,
+      headTeacherId: data.headTeacherId,
     },
   });
 }
