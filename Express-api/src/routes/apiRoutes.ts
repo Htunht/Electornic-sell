@@ -1,6 +1,7 @@
 import express from "express";
 import type { RequestHandler } from "express";
 import * as studentController from "../controller/api/studentController";
+import * as headTeacherController from "../controller/api/headTeacherController";
 import * as teacherController from "../controller/api/teacherController";
 import * as calendarController from "../controller/api/calendarController";
 import * as attendanceController from "../controller/api/attendanceController";
@@ -17,7 +18,6 @@ router.use((req, res, next) => {
 // ---------------------------------------------------------------------------
 // Student APIs
 // ---------------------------------------------------------------------------
-// Only accessible to users with the STUDENT role
 router.get(
   "/students/me",
   authGuard,
@@ -50,9 +50,108 @@ router.get(
 );
 
 // ---------------------------------------------------------------------------
-// Teacher APIs
+// Head Teacher APIs
 // ---------------------------------------------------------------------------
-// Only accessible to users with TEACHER or HEAD roles
+router.get(
+  "/head-teachers/me",
+  authGuard,
+  requireRole("HEAD_TEACHER"),
+  headTeacherController.getMe as unknown as RequestHandler,
+);
+router.get(
+  "/head-teachers/me/assignments",
+  authGuard,
+  requireRole("HEAD_TEACHER"),
+  headTeacherController.getMyAssignments as unknown as RequestHandler,
+);
+router.get(
+  "/head-teachers/me/subjects",
+  authGuard,
+  requireRole("HEAD_TEACHER"),
+  headTeacherController.getMySubjects as unknown as RequestHandler,
+);
+router.post(
+  "/head-teachers/me/assignments",
+  authGuard,
+  requireRole("HEAD_TEACHER"),
+  headTeacherController.createMyAssignment as unknown as RequestHandler,
+);
+router.delete(
+  "/head-teachers/me/assignments/:id",
+  authGuard,
+  requireRole("HEAD_TEACHER"),
+  headTeacherController.deleteMyAssignment as unknown as RequestHandler,
+);
+router.get(
+  "/head-teachers/students",
+  authGuard,
+  requireRole("HEAD_TEACHER"),
+  headTeacherController.getMyStudents as unknown as RequestHandler,
+);
+router.get(
+  "/head-teachers/teachers",
+  authGuard,
+  requireRole("HEAD_TEACHER"),
+  headTeacherController.getAllTeachers as unknown as RequestHandler,
+);
+router.post(
+  "/head-teachers/teachers/:id/assignments",
+  authGuard,
+  requireRole("HEAD_TEACHER"),
+  headTeacherController.assignSubjectToTeacher as unknown as RequestHandler,
+);
+router.post(
+  "/head-teachers/results/bulk",
+  authGuard,
+  requireRole("HEAD_TEACHER"),
+  headTeacherController.bulkUpsertResults as unknown as RequestHandler,
+);
+router.post(
+  "/head-teachers/attendance/bulk",
+  authGuard,
+  requireRole("HEAD_TEACHER"),
+  headTeacherController.bulkUpsertAttendance as unknown as RequestHandler,
+);
+router.post(
+  "/head-teachers/subjects",
+  authGuard,
+  requireRole("HEAD_TEACHER"),
+  headTeacherController.createSubject as unknown as RequestHandler,
+);
+router.put(
+  "/head-teachers/subjects/:id",
+  authGuard,
+  requireRole("HEAD_TEACHER"),
+  headTeacherController.updateSubject as unknown as RequestHandler,
+);
+router.delete(
+  "/head-teachers/subjects/:id",
+  authGuard,
+  requireRole("HEAD_TEACHER"),
+  headTeacherController.deleteSubject as unknown as RequestHandler,
+);
+router.post(
+  "/head-teachers/announcements",
+  authGuard,
+  requireRole("HEAD_TEACHER"),
+  announcementController.createAnnouncement as unknown as RequestHandler,
+);
+router.get(
+  "/head-teachers/announcements",
+  authGuard,
+  requireRole("HEAD_TEACHER"),
+  announcementController.getAllAnnouncements as unknown as RequestHandler,
+);
+router.delete(
+  "/head-teachers/announcements/:id",
+  authGuard,
+  requireRole("HEAD_TEACHER"),
+  announcementController.deleteAnnouncement as unknown as RequestHandler,
+);
+
+// ---------------------------------------------------------------------------
+// Teacher APIs (Regular)
+// ---------------------------------------------------------------------------
 router.get(
   "/teachers/me",
   authGuard,
@@ -101,47 +200,16 @@ router.post(
   requireRole("TEACHER"),
   teacherController.bulkUpsertAttendance as unknown as RequestHandler,
 );
-router.post(
-  "/teachers/subjects",
-  authGuard,
-  requireRole("TEACHER"),
-  teacherController.createSubject as unknown as RequestHandler,
-);
-router.put(
-  "/teachers/subjects/:id",
-  authGuard,
-  requireRole("TEACHER"),
-  teacherController.updateSubject as unknown as RequestHandler,
-);
-router.delete(
-  "/teachers/subjects/:id",
-  authGuard,
-  requireRole("TEACHER"),
-  teacherController.deleteSubject as unknown as RequestHandler,
-);
-router.post(
-  "/teachers/announcements",
-  authGuard,
-  requireRole("TEACHER"),
-  announcementController.createAnnouncement as unknown as RequestHandler,
-);
 router.get(
   "/teachers/announcements",
   authGuard,
   requireRole("TEACHER"),
-  announcementController.getAllAnnouncements as unknown as RequestHandler,
-);
-router.delete(
-  "/teachers/announcements/:id",
-  authGuard,
-  requireRole("TEACHER"),
-  announcementController.deleteAnnouncement as unknown as RequestHandler,
+  announcementController.getAnnouncements as unknown as RequestHandler,
 );
 
 // ---------------------------------------------------------------------------
 // Calendar APIs
 // ---------------------------------------------------------------------------
-// Accessible to any authenticated user
 router.get(
   "/calendar/events",
   authGuard,
@@ -150,7 +218,7 @@ router.get(
 router.post(
   "/calendar/events",
   authGuard,
-  requireRole("TEACHER"),
+  requireRole("HEAD_TEACHER"),
   calendarController.saveEvent as unknown as RequestHandler,
 );
 

@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { AuthenticatedRequest } from "../../middleware/auth";
 import * as calendarService from "../../service/calendarService";
-import * as teacherService from "../../service/teacherService";
+import * as headTeacherService from "../../service/headTeacherService";
 import { ServiceError } from "../../service/userService";
 
 export async function getMyEvents(req: AuthenticatedRequest, res: Response) {
@@ -22,19 +22,15 @@ export async function getMyEvents(req: AuthenticatedRequest, res: Response) {
 export async function saveEvent(req: AuthenticatedRequest, res: Response) {
   try {
     const { date, title, description } = req.body;
-    
-    if (req.user.role !== "TEACHER") {
-      return res.status(403).json({ message: "Only teachers can add or update notes." });
-    }
 
-    // Must use Teacher ID, not User ID
-    const teacher = await teacherService.getTeacherByUserId(req.user.id);
+    // Must use HeadTeacher ID, not User ID
+    const headTeacher = await headTeacherService.getHeadTeacherByUserId(req.user.id);
 
     const event = await calendarService.upsertEvent({
       date,
       title,
       description,
-      teacherId: teacher.id,
+      teacherId: headTeacher.id,
     });
 
     return res.json({ success: true, data: event });
@@ -46,9 +42,6 @@ export async function saveEvent(req: AuthenticatedRequest, res: Response) {
 export async function deleteEvent(req: AuthenticatedRequest, res: Response) {
   try {
     const id = req.params.id as string;
-    if (req.user.role !== "TEACHER") {
-      return res.status(403).json({ message: "Only teachers can delete notes." });
-    }
     await calendarService.removeEvent(id);
     return res.json({ success: true, message: "Event deleted" });
   } catch (error) {

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { useEffect, useState, useMemo } from "react";
 import DashboardNav from "../../components/dashboard/DashboardNav";
 import CreativeCalendar from "../../components/dashboard/CreativeCalendar";
-import { teacherApi } from "../../lib/api";
+import { headTeacherApi } from "../../lib/api";
 import { 
   Users, 
   BookOpen, 
@@ -27,7 +27,8 @@ import {
 export default function TeacherDashboard() {
   const { data: session, isPending } = useSession();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"overview" | "classes" | "students" | "subjects">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "classes" | "students" | "subjects" | "teachers">("overview");
+  const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   // ─── Students tab filter state ──────────────────────────────────────────────
   const [studentFilterYear, setStudentFilterYear] = useState<string | null>(null);
@@ -36,6 +37,7 @@ export default function TeacherDashboard() {
   const [teacherData, setTeacherData] = useState<any>(null);
   const [assignments, setAssignments] = useState<any[]>([]);
   const [allSubjects, setAllSubjects] = useState<any[]>([]);
+  const [allTeachers, setAllTeachers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [showSubjectModal, setShowSubjectModal] = useState(false);
@@ -57,6 +59,12 @@ export default function TeacherDashboard() {
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [newAnnouncement, setNewAnnouncement] = useState({ title: "", content: "", type: "GENERAL", major: "ALL", year: "ALL" });
   const [creatingAnnouncement, setCreatingAnnouncement] = useState(false);
+  
+  const [showTeacherModal, setShowTeacherModal] = useState(false);
+  const [selectedTeacher, setSelectedTeacher] = useState<any>(null);
+  const [assigningToTeacher, setAssigningToTeacher] = useState({ subjectId: "", year: "YEAR_1" });
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [assignmentSuccess, setAssignmentSuccess] = useState(false);
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -71,22 +79,29 @@ export default function TeacherDashboard() {
         navigate("/login");
       } else if (session.user.role === "STUDENT") {
         navigate("/student");
+      } else if (session.user.role === "HEAD_TEACHER") {
+        // Stay here, but check if we need to redirect if it was /teacher
+        if (window.location.pathname === "/teacher") {
+          navigate("/head-teacher", { replace: true });
+        }
       }
     }
   }, [session, isPending, navigate]);
 
   const fetchData = async () => {
     try {
-      const [profileRes, assignmentsRes, subjectsRes, announcementsRes] = await Promise.all([
-        teacherApi.getMe(),
-        teacherApi.getAssignments(),
-        teacherApi.getSubjects(),
-        teacherApi.getAnnouncements(),
+      const [profileRes, assignmentsRes, subjectsRes, announcementsRes, teachersRes] = await Promise.all([
+        headTeacherApi.getMe(),
+        headTeacherApi.getAssignments(),
+        headTeacherApi.getSubjects(),
+        headTeacherApi.getAnnouncements(),
+        headTeacherApi.getTeachers(),
       ]);
       setTeacherData(profileRes.data);
       setAssignments(assignmentsRes.data?.assignments ?? []);
       setAllSubjects(Array.isArray(subjectsRes.data) ? subjectsRes.data : []);
       setAnnouncements(announcementsRes.data?.data ?? []);
+      setAllTeachers(Array.isArray(teachersRes.data) ? teachersRes.data : []);
     } catch (error) {
       console.error("Error fetching teacher data:", error);
     } finally {
@@ -105,9 +120,11 @@ export default function TeacherDashboard() {
     setCreating(true);
     try {
       if (editingSubject) {
-        await teacherApi.updateSubject(editingSubject.id, newSubject);
+        await headTeacherApi.updateSubject(editingSubject.id, newSubject);
+        showNotification("Subject updated successfully!", "success");
       } else {
-        await teacherApi.createSubject(newSubject);
+        await headTeacherApi.createSubject(newSubject);
+        showNotification("New subject created!", "success");
       }
       setShowSubjectModal(false);
       setEditingSubject(null);
@@ -115,27 +132,59 @@ export default function TeacherDashboard() {
       await fetchData(); // Refresh
     } catch (error) {
       console.error("Error saving subject:", error);
-      alert("Failed to save subject.");
+      showNotification("Failed to save subject.", "error");
     } finally {
       setCreating(false);
     }
   };
 
   const handleDeleteSubject = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this subject?")) return;
+    if (!confirm("Are you sure? This will delete the subject globally.")) return;
     try {
-      await teacherApi.deleteSubject(id);
+      await headTeacherApi.deleteSubject(id);
+      showNotification("Subject deleted from department library.", "success");
       await fetchData();
     } catch (error) {
       console.error("Error deleting subject:", error);
-      alert("Failed to delete subject.");
+      showNotification("Failed to delete subject.", "error");
     }
   };
-
   const openEditModal = (subject: any) => {
     setEditingSubject(subject);
     setNewSubject({ code: subject.code, name: subject.name, year: subject.year || "YEAR_1", semester: subject.semester || 1, creditHours: subject.creditHours || 3 });
     setShowSubjectModal(true);
+  };
+
+  const handleAssignToMe = async (subject: any) => {
+    try {
+      await headTeacherApi.createAssignment({
+        subjectId: subject.id,
+        year: subject.year,
+        canEdit: true,
+      });
+      showNotification(`Assigned "${subject.name}" to your list!`, "success");
+      await fetchData();
+    } catch (error) {
+      console.error("Error assigning subject:", error);
+      showNotification("Failed to assign subject.", "error");
+    }
+  };
+
+  const handleUnassign = async (assignmentId: string) => {
+    if (!confirm("Remove this subject from your teaching list?")) return;
+    try {
+      await headTeacherApi.deleteAssignment(assignmentId);
+      showNotification("Subject removed from your list.", "success");
+      await fetchData();
+    } catch (error) {
+      console.error("Error unassigning subject:", error);
+      showNotification("Failed to remove assignment.", "error");
+    }
+  };
+
+  const showNotification = (message: string, type: "success" | "error") => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
   };
 
   const openCreateModal = () => {
@@ -148,29 +197,78 @@ export default function TeacherDashboard() {
     e.preventDefault();
     setCreatingAnnouncement(true);
     try {
-      await teacherApi.createAnnouncement({
+      await headTeacherApi.createAnnouncement({
         ...newAnnouncement,
-        teacherId: teacherData.id,
+        headTeacherId: teacherData.id,
         major: newAnnouncement.major === "ALL" ? undefined : newAnnouncement.major,
         year: newAnnouncement.year === "ALL" ? undefined : newAnnouncement.year,
       } as any);
+      showNotification("Announcement posted!", "success");
       setShowAnnouncementModal(false);
       setNewAnnouncement({ title: "", content: "", type: "GENERAL", major: "ALL", year: "ALL" });
       await fetchData();
     } catch (error) {
       console.error("Error creating announcement:", error);
+      showNotification("Failed to create announcement.", "error");
     } finally {
       setCreatingAnnouncement(false);
     }
   };
 
+  const handleAssignToTeacher = async () => {
+    if (!selectedTeacher || !assigningToTeacher.subjectId) return;
+    setIsAssigning(true);
+    try {
+      await headTeacherApi.assignToTeacher(selectedTeacher.id, {
+        subjectId: assigningToTeacher.subjectId,
+        year: assigningToTeacher.year,
+        canEdit: true
+      });
+      showNotification(`Subject assigned to ${selectedTeacher.user?.name}`, "success");
+      setAssignmentSuccess(true);
+      setTimeout(() => setAssignmentSuccess(false), 3000);
+      
+      await fetchData();
+      // Refresh selected teacher in modal
+      const updatedTeacher = allTeachers.find(t => t.id === selectedTeacher.id);
+      setSelectedTeacher(updatedTeacher);
+    } catch (error) {
+      console.error("Error assigning to teacher:", error);
+      showNotification("Failed to assign subject.", "error");
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  const handleRemoveFromTeacher = async (assignmentId: string) => {
+    if (!confirm("Remove this assignment?")) return;
+    try {
+      await headTeacherApi.deleteAssignment(assignmentId);
+      showNotification("Assignment removed.", "success");
+      await fetchData();
+      // Refresh selected teacher in modal
+      const updatedTeacher = allTeachers.find(t => t.id === selectedTeacher.id);
+      setSelectedTeacher(updatedTeacher);
+    } catch (error) {
+      console.error("Error removing assignment:", error);
+      showNotification("Failed to remove assignment.", "error");
+    }
+  };
+
+  const openTeacherModal = (teacher: any) => {
+    setSelectedTeacher(teacher);
+    setShowTeacherModal(true);
+  };
+
   const handleDeleteAnnouncement = async (id: string) => {
     if (!confirm("Are you sure?")) return;
     try {
-      await teacherApi.deleteAnnouncement(id);
+      await headTeacherApi.deleteAnnouncement(id);
+      showNotification("Announcement deleted.", "success");
       await fetchData();
     } catch (error) {
       console.error("Error deleting announcement:", error);
+      showNotification("Failed to delete announcement.", "error");
     }
   };
 
@@ -201,6 +299,20 @@ export default function TeacherDashboard() {
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
         <DashboardNav session={session} />
+
+        {/* Floating Notification */}
+        {notification && (
+          <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-8 duration-500">
+            <div className={`flex items-center gap-3 px-6 py-4 rounded-[1.5rem] shadow-2xl backdrop-blur-xl border ${
+              notification.type === "success" 
+                ? "bg-emerald-500/90 border-emerald-400 text-white" 
+                : "bg-rose-500/90 border-rose-400 text-white"
+            }`}>
+              {notification.type === "success" ? <Trophy size={18} /> : <BookOpen size={18} />}
+              <span className="font-bold tracking-tight text-sm">{notification.message}</span>
+            </div>
+          </div>
+        )}
 
         {/* Hero Header */}
         <div className="mt-8 relative rounded-[2.5rem] overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900 text-white p-8 md:p-12 shadow-2xl shadow-emerald-900/20">
@@ -273,7 +385,7 @@ export default function TeacherDashboard() {
         <div className="mt-12 bg-white/60 backdrop-blur-xl rounded-[2.5rem] border border-white shadow-xl shadow-slate-200/50 overflow-hidden">
           <div className="flex flex-col sm:flex-row items-center justify-between px-8 pt-8 pb-4 border-b border-slate-100">
             <div className="flex gap-1 p-1.5 bg-slate-100/80 rounded-2xl mb-4 sm:mb-0">
-              {(["overview", "classes", "students", "subjects"] as const).map((tab) => (
+              {(["overview", "classes", "students", "subjects", "teachers"] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -459,7 +571,7 @@ export default function TeacherDashboard() {
                       </div>
                     </div>
                     <button
-                      onClick={() => navigate(`/teacher/students/${studentFilterYear}?semester=${studentFilterSem}`)}
+                    onClick={() => navigate(`/head-teacher/students/${studentFilterYear}?semester=${studentFilterSem}`)}
                       className="group flex items-center gap-3 px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold text-lg hover:bg-emerald-600 transition-all shadow-xl hover:shadow-emerald-200"
                     >
                       Access Management
@@ -550,24 +662,41 @@ export default function TeacherDashboard() {
                             <td className="px-4 sm:px-6 py-4 text-center font-bold text-slate-600 text-sm">
                               {sub.creditHours || 3}
                             </td>
-                            <td className="px-4 sm:px-6 py-4">
-                              <div className="flex items-center justify-end gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                                <button 
-                                  onClick={() => openEditModal(sub)}
-                                  className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center transition-colors"
-                                  title="Edit Subject"
-                                >
-                                  <Edit2 size={14} />
-                                </button>
-                                <button 
-                                  onClick={() => handleDeleteSubject(sub.id)}
-                                  className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-600 flex items-center justify-center transition-colors"
-                                  title="Delete Subject"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                            </td>
+                              <td className="px-4 sm:px-6 py-4">
+                               <div className="flex items-center justify-end gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                 {assignments.some(a => a.subjectId === sub.id) ? (
+                                   <button 
+                                     onClick={() => handleUnassign(assignments.find(a => a.subjectId === sub.id)!.id)}
+                                     className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white flex items-center justify-center transition-all"
+                                     title="Un-assign from Me"
+                                   >
+                                     <Trash2 size={14} />
+                                   </button>
+                                 ) : (
+                                   <button 
+                                     onClick={() => handleAssignToMe(sub)}
+                                     className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white flex items-center justify-center transition-all"
+                                     title="Assign to Me"
+                                   >
+                                     <PlusCircle size={14} />
+                                   </button>
+                                 )}
+                                 <button 
+                                   onClick={() => openEditModal(sub)}
+                                   className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 hover:bg-blue-50 hover:text-blue-600 flex items-center justify-center transition-colors"
+                                   title="Edit Subject"
+                                 >
+                                   <Edit2 size={14} />
+                                 </button>
+                                 <button 
+                                   onClick={() => handleDeleteSubject(sub.id)}
+                                   className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-600 flex items-center justify-center transition-colors"
+                                   title="Delete Subject Globally"
+                                 >
+                                   <Trash2 size={14} />
+                                 </button>
+                               </div>
+                             </td>
                           </tr>
                         ))}
                         {filteredSubjects.length === 0 && (
@@ -581,6 +710,70 @@ export default function TeacherDashboard() {
                       </tbody>
                     </table>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "teachers" && (
+              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="max-w-2xl">
+                  <h3 className="text-2xl font-bold text-slate-800 tracking-tight">Faculty & Assignments</h3>
+                  <p className="text-slate-500 mt-2 text-base leading-relaxed">
+                    View all teachers in your department and their current subject assignments.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {allTeachers.map((teacher: any) => (
+                    <div key={teacher.id} className="group relative bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-500 overflow-hidden">
+                      {/* Decoration */}
+                      <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-50 rounded-full group-hover:bg-emerald-100 transition-colors duration-500" />
+                      
+                      <div className="relative z-10 flex flex-col h-full">
+                        <div className="flex items-center gap-4 mb-6">
+                          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-700 text-white flex items-center justify-center text-xl font-black shadow-lg">
+                            {teacher.user?.name?.charAt(0) || "T"}
+                          </div>
+                          <div>
+                            <h4 className="font-black text-slate-900 truncate max-w-[150px]">{teacher.user?.name}</h4>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{teacher.major}</p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-4 flex-1">
+                          <div className="flex items-center justify-between text-xs font-black text-slate-400 uppercase tracking-widest px-1">
+                            <span>Assigned Subjects</span>
+                            <span className="text-emerald-600">{teacher.assignments?.length || 0}</span>
+                          </div>
+                          
+                          <div className="space-y-2 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
+                            {teacher.assignments?.length > 0 ? (
+                              teacher.assignments.map((asgn: any) => (
+                                <div key={asgn.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100 group-hover:bg-white group-hover:border-emerald-100 transition-all">
+                                  <div className="flex justify-between items-start mb-1">
+                                    <span className="font-mono text-[10px] font-black text-emerald-600">{asgn.subject?.code}</span>
+                                    <span className="px-2 py-0.5 rounded-full bg-slate-200 text-[8px] font-black uppercase tracking-tight">{asgn.year.replace("_", " ")}</span>
+                                  </div>
+                                  <p className="text-xs font-bold text-slate-700 truncate">{asgn.subject?.name}</p>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-xs text-slate-400 italic text-center py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">No active assignments</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="mt-8 pt-6 border-t border-slate-100">
+                          <button 
+                            onClick={() => openTeacherModal(teacher)}
+                            className="mt-6 w-full py-4 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 transition-all active:scale-[0.98]"
+                          >
+                            Manage Profile
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -868,6 +1061,129 @@ export default function TeacherDashboard() {
           </div>
         </div>
       )}
+
+      {/* Teacher Management Modal */}
+      {showTeacherModal && selectedTeacher && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setShowTeacherModal(false)} />
+          <div className="relative bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-8 duration-500">
+            <div className="bg-slate-900 p-8 text-white relative">
+              <div className="absolute top-0 right-0 p-8 opacity-10">
+                <Users size={120} strokeWidth={1} />
+              </div>
+              <div className="relative z-10 flex items-center gap-6">
+                <div className="w-20 h-20 rounded-3xl bg-emerald-500 flex items-center justify-center text-3xl font-black shadow-xl shadow-emerald-500/30">
+                  {selectedTeacher.user?.name?.charAt(0)}
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold">{selectedTeacher.user?.name}</h3>
+                  <p className="text-emerald-400 text-xs font-black uppercase tracking-widest mt-1">{selectedTeacher.major} FACULTY</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-8 max-h-[60vh] overflow-y-auto custom-scrollbar relative">
+              {/* Success Overlay */}
+              {assignmentSuccess && (
+                <div className="absolute inset-0 z-50 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in zoom-in duration-500">
+                  <div className="w-24 h-24 rounded-full bg-emerald-100 flex items-center justify-center mb-6 relative">
+                    <div className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-20" />
+                    <CheckCircle2 size={48} className="text-emerald-600 relative z-10" />
+                  </div>
+                  <h4 className="text-2xl font-black text-slate-900 mb-2">Assignment Complete!</h4>
+                  <p className="text-slate-500 font-medium text-center max-w-[250px]">
+                    {selectedTeacher.user?.name} is now authorized to teach this subject.
+                  </p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Current Assignments */}
+                <div className="space-y-6">
+                  <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest">Active Assignments</h4>
+                  <div className="space-y-3">
+                    {selectedTeacher.assignments?.map((assignment: any) => (
+                      <div key={assignment.id} className="group flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100 hover:border-emerald-200 transition-all">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-black text-emerald-600 uppercase mb-0.5">{assignment.subject?.code}</span>
+                          <span className="text-sm font-bold text-slate-700">{assignment.subject?.name}</span>
+                          <span className="text-[10px] font-bold text-slate-400 mt-1">{assignment.year.replace("_", " ")}</span>
+                        </div>
+                        <button 
+                          onClick={() => handleRemoveFromTeacher(assignment.id)}
+                          className="w-8 h-8 rounded-xl bg-white text-rose-500 border border-slate-100 hover:bg-rose-500 hover:text-white transition-all shadow-sm flex items-center justify-center"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                    {(!selectedTeacher.assignments || selectedTeacher.assignments.length === 0) && (
+                      <div className="py-8 text-center rounded-3xl border-2 border-dashed border-slate-100 text-slate-300">
+                        <BookOpen size={24} className="mx-auto mb-2 opacity-50" />
+                        <p className="text-xs font-bold italic">No assignments found</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Add New Assignment */}
+                <div className="space-y-6">
+                  <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest">Assign New Subject</h4>
+                  <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Select Subject</label>
+                      <select 
+                        value={assigningToTeacher.subjectId}
+                        onChange={(e) => setAssigningToTeacher({...assigningToTeacher, subjectId: e.target.value})}
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-700 focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                      >
+                        <option value="">Choose a subject...</option>
+                        {allSubjects.map(s => (
+                          <option key={s.id} value={s.id}>{s.code} - {s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase ml-2">Academic Year</label>
+                      <select 
+                        value={assigningToTeacher.year}
+                        onChange={(e) => setAssigningToTeacher({...assigningToTeacher, year: e.target.value})}
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-700 focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                      >
+                        {["YEAR_1", "YEAR_2", "YEAR_3", "YEAR_4", "YEAR_5", "YEAR_6"].map(y => (
+                          <option key={y} value={y}>{y.replace("_", " ")}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <button 
+                      onClick={handleAssignToTeacher}
+                      disabled={isAssigning || !assigningToTeacher.subjectId}
+                      className="w-full py-4 bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-emerald-500/30 hover:bg-emerald-400 disabled:opacity-50 disabled:hover:bg-emerald-500 transition-all flex items-center justify-center gap-2"
+                    >
+                      {isAssigning ? "Processing..." : (
+                        <>
+                          <PlusCircle size={16} /> Assign Subject
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button 
+                onClick={() => setShowTeacherModal(false)}
+                className="px-8 py-3 rounded-xl bg-white border border-slate-200 text-slate-600 text-xs font-black uppercase tracking-widest hover:bg-slate-100 transition-all"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -925,14 +1241,14 @@ function CreativeClassCard({ asgn }: { asgn: any }) {
         
         <div className="flex flex-col gap-3 mt-6">
           <button 
-            onClick={() => subjectId && navigate(`/teacher/students/${year}?subjectId=${subjectId}&mode=grading`)}
+            onClick={() => subjectId && navigate(`/head-teacher/students/${year}?subjectId=${subjectId}&mode=grading`)}
             className="flex items-center justify-center gap-2 w-full py-3 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200"
           >
             <ClipboardList size={16} />
             Enter Grades
           </button>
           <button 
-            onClick={() => subjectId && navigate(`/teacher/students/${year}?subjectId=${subjectId}&mode=attendance`)}
+            onClick={() => subjectId && navigate(`/head-teacher/students/${year}?subjectId=${subjectId}&mode=attendance`)}
             className="flex items-center justify-center gap-2 w-full py-3 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 transition-all"
           >
             <CalendarCheck size={16} />

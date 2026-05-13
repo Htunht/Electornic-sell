@@ -7,7 +7,8 @@ export class AnnouncementRepository {
     title: string;
     content: string;
     type: AnnouncementType;
-    teacherId: string;
+    teacherId?: string;
+    headTeacherId?: string;
     major?: Major;
     year?: AcademicYear;
   }) {
@@ -17,6 +18,7 @@ export class AnnouncementRepository {
         content: data.content,
         type: data.type,
         teacherId: data.teacherId,
+        headTeacherId: data.headTeacherId,
         major: data.major,
         year: data.year,
       },
@@ -60,6 +62,16 @@ export class AnnouncementRepository {
               }
             }
           }
+        },
+        headTeacher: {
+          include: {
+            user: {
+              select: {
+                name: true,
+                image: true,
+              }
+            }
+          }
         }
       }
     });
@@ -72,6 +84,16 @@ export class AnnouncementRepository {
       },
       include: {
         teacher: {
+          include: {
+            user: {
+              select: {
+                name: true,
+                image: true,
+              }
+            }
+          }
+        },
+        headTeacher: {
           include: {
             user: {
               select: {

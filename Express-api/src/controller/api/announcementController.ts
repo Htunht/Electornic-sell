@@ -5,12 +5,13 @@ const announcementRepo = new AnnouncementRepository();
 
 export const createAnnouncement = async (req: Request, res: Response) => {
   try {
-    const { title, content, type, teacherId, major, year } = req.body;
+    const { title, content, type, teacherId, headTeacherId, major, year } = req.body;
     const announcement = await announcementRepo.createAnnouncement({
       title,
       content,
       type,
       teacherId,
+      headTeacherId,
       major,
       year,
     });

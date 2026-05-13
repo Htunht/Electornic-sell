@@ -8,7 +8,10 @@ import verifyOTPPage from "./pages/auth/verify-otp";
 import ForgetPasswordPage from "./pages/auth/forgot-password";
 import ResetPasswordPage from "./components/auth/reset-password";
 import StudentDashboard from "./pages/dashboard/StudentDashboard";
-import TeacherDashboard from "./pages/dashboard/TeacherDashboard";
+import HeadTeacherDashboard from "./pages/dashboard/HeadTeacherDashboard";
+import HeadTeacherStudentsYear from "./pages/dashboard/HeadTeacherStudentsYear";
+import HeadTeacherClassManagement from "./pages/dashboard/HeadTeacherClassManagement";
+import RegularTeacherDashboard from "./pages/dashboard/RegularTeacherDashboard";
 import TeacherStudentsYear from "./pages/dashboard/TeacherStudentsYear";
 import TeacherClassManagement from "./pages/dashboard/TeacherClassManagement";
 
@@ -20,7 +23,11 @@ function RoleRedirect() {
   if (isPending) return <div className="h-screen flex items-center justify-center">Loading...</div>;
   if (!session) return <Navigate to="/login" replace />;
   
-  if (session.user.role === "TEACHER" || session.user.role === "MAJOR_HEAD" || session.user.role === "MINOR_HEAD") {
+  if (session.user.role === "HEAD_TEACHER") {
+    return <Navigate to="/head-teacher" replace />;
+  }
+  
+  if (session.user.role === "TEACHER") {
     return <Navigate to="/teacher" replace />;
   }
   
@@ -35,9 +42,12 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <RoleRedirect /> },
       { path: "student", Component: StudentDashboard },
-      { path: "teacher", Component: TeacherDashboard },
+      { path: "teacher", Component: RegularTeacherDashboard },
       { path: "teacher/students/:year", Component: TeacherStudentsYear },
       { path: "teacher/classes/:subjectId/manage", Component: TeacherClassManagement },
+      { path: "head-teacher", Component: HeadTeacherDashboard },
+      { path: "head-teacher/students/:year", Component: HeadTeacherStudentsYear },
+      { path: "head-teacher/classes/:subjectId/manage", Component: HeadTeacherClassManagement },
     ],
   },
   {

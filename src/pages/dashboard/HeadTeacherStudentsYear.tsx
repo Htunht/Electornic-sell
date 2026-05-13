@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useSession } from "@/lib/auth-client";
-import { teacherApi } from "@/lib/api";
+import { headTeacherApi } from "@/lib/api";
 import DashboardNav from "@/components/dashboard/DashboardNav";
 import {
   ChevronLeft,
@@ -109,9 +109,9 @@ export default function TeacherStudentsYear() {
       if (!session) return;
       try {
         const [asgnRes, subjRes, profileRes] = await Promise.all([
-          teacherApi.getAssignments(),
-          teacherApi.getSubjects({ year }),
-          teacherApi.getMe(),
+          headTeacherApi.getAssignments(),
+          headTeacherApi.getSubjects({ year }),
+          headTeacherApi.getMe(),
         ]);
         if (cancelled) return;
         setTeacherProfile(profileRes.data);
@@ -149,9 +149,9 @@ export default function TeacherStudentsYear() {
       if (existing?.id) {
         // Confirmation modal logic would set deletingSubjectId
         // This function is kept for the "Add" part, but we'll use a separate delete handler for the icon
-        await teacherApi.deleteAssignment(String(existing.id));
+        await headTeacherApi.deleteAssignment(String(existing.id));
       } else {
-        await teacherApi.createAssignment({ subjectId: sid, year });
+        await headTeacherApi.createAssignment({ subjectId: sid, year });
       }
       await refreshAssignments();
     } catch (e: unknown) {
@@ -165,7 +165,7 @@ export default function TeacherStudentsYear() {
    * Refetches assignments and updates local state
    */
   async function refreshAssignments() {
-    const asgnRes = await teacherApi.getAssignments();
+    const asgnRes = await headTeacherApi.getAssignments();
     const list = Array.isArray(asgnRes.data?.assignments)
       ? asgnRes.data.assignments
       : [];
@@ -211,7 +211,7 @@ export default function TeacherStudentsYear() {
     });
 
     try {
-      await teacherApi.deleteAssignment(String(assignment.id));
+      await headTeacherApi.deleteAssignment(String(assignment.id));
       setSaveMsg("Subject removed successfully.");
       setTimeout(() => setSaveMsg(null), 3000);
     } catch (e: unknown) {
@@ -247,7 +247,7 @@ export default function TeacherStudentsYear() {
         date: entryDate,
       }));
       
-      await teacherApi.saveBulkAttendance({
+      await headTeacherApi.saveBulkAttendance({
         subjectId,
         attendanceData,
       });
@@ -275,7 +275,7 @@ export default function TeacherStudentsYear() {
       if (!session) return;
       setLoading(true);
       try {
-        const res = await teacherApi.getStudents({
+        const res = await headTeacherApi.getStudents({
           year,
           search: search.trim() || undefined,
           page,
@@ -350,7 +350,7 @@ export default function TeacherStudentsYear() {
       const promises = Object.entries(studentMarks).map(([sid, val]) => {
         const marks = Number(val);
         if (Number.isNaN(marks)) return Promise.resolve();
-        return teacherApi.saveStudentMarks({
+        return headTeacherApi.saveStudentMarks({
           studentId,
           subjectId: sid,
           marks,
@@ -483,7 +483,7 @@ export default function TeacherStudentsYear() {
               {YEARS.map((y) => (
                 <Link
                   key={y}
-                  to={`/teacher/students/${y}?semester=${semester}&mode=${viewMode.toLowerCase()}`}
+                  to={`/head-teacher/students/${y}?semester=${semester}&mode=${viewMode.toLowerCase()}`}
                   className={cn(
                     "px-5 py-2 rounded-xl text-xs font-bold transition-all",
                     y === year
@@ -504,7 +504,7 @@ export default function TeacherStudentsYear() {
                     setSemester(s);
                     // Update URL without full refresh if possible, or just use Link. 
                     // Since it's a state, we just set it, but for consistency:
-                    navigate(`/teacher/students/${year}?semester=${s}&mode=${viewMode.toLowerCase()}`);
+                    navigate(`/head-teacher/students/${year}?semester=${s}&mode=${viewMode.toLowerCase()}`);
                   }}
                   className={cn(
                     "px-6 py-2 rounded-xl text-xs font-bold transition-all",

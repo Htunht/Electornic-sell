@@ -16,6 +16,10 @@ export async function getTeacherAssignments(teacherId: string) {
   return assignmentRepo.findAssignmentsByTeacher(teacherId);
 }
 
+export async function getHeadTeacherAssignments(headTeacherId: string) {
+  return assignmentRepo.findAssignmentsByHeadTeacher(headTeacherId);
+}
+
 export async function getClassAssignments(major: Major, year: AcademicYear) {
   return assignmentRepo.findAssignmentsByClass(major, year);
 }
@@ -25,7 +29,8 @@ export async function getClassAssignments(major: Major, year: AcademicYear) {
 // ---------------------------------------------------------------------------
 
 export async function assignTeacher(data: {
-  teacherId: string;
+  teacherId?: string;
+  headTeacherId?: string;
   subjectId: string;
   major: Major;
   year: AcademicYear;
@@ -40,7 +45,7 @@ export async function assignTeacher(data: {
   );
 
   if (existingClassSlot) {
-    if (existingClassSlot.teacherId === data.teacherId) {
+    if (existingClassSlot.teacherId === data.teacherId && existingClassSlot.headTeacherId === data.headTeacherId) {
       throw new ServiceError(
         409,
         "Teacher is already assigned to this subject for this class.",
@@ -49,17 +54,18 @@ export async function assignTeacher(data: {
 
     return assignmentRepo.updateAssignment(existingClassSlot.id, {
       teacherId: data.teacherId,
+      headTeacherId: data.headTeacherId,
       canEdit: data.canEdit ?? existingClassSlot.canEdit,
     });
   }
 
-  // Also block duplicates for same teacher+subject+class (defensive; DB unique covers this too)
-  const existingTeacherSlot = await assignmentRepo.findTeacherAssignment(
-    data.teacherId,
-    data.subjectId,
-    data.major,
-    data.year,
-  );
+  // Also block duplicates for same teacher+subject+class
+  const existingTeacherSlot = data.teacherId 
+    ? await assignmentRepo.findTeacherAssignment(data.teacherId, data.subjectId, data.major, data.year)
+    : data.headTeacherId 
+    ? await assignmentRepo.findHeadTeacherAssignment(data.headTeacherId, data.subjectId, data.major, data.year)
+    : null;
+
   if (existingTeacherSlot) {
     throw new ServiceError(
       409,

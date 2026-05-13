@@ -69,7 +69,7 @@ export default function StudentDashboard() {
       if (!session) {
         navigate("/login");
       } else if (session.user.role !== "STUDENT") {
-        navigate("/teacher");
+        navigate("/head-teacher");
       }
     }
   }, [session, isPending, navigate]);

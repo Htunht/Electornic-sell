@@ -8,7 +8,7 @@ import { Major, AcademicYear } from "@prisma/client";
 export async function findAssignmentById(id: string) {
   return prisma.subjectAssignment.findUnique({
     where: { id },
-    include: { teacher: true, subject: true },
+    include: { teacher: true, headTeacher: true, subject: true },
   });
 }
 
@@ -20,10 +20,18 @@ export async function findAssignmentsByTeacher(teacherId: string) {
   });
 }
 
+export async function findAssignmentsByHeadTeacher(headTeacherId: string) {
+  return prisma.subjectAssignment.findMany({
+    where: { headTeacherId },
+    include: { subject: true },
+    orderBy: [{ major: "asc" }, { year: "asc" }],
+  });
+}
+
 export async function findAssignmentsByClass(major: Major, year: AcademicYear) {
   return prisma.subjectAssignment.findMany({
     where: { major, year },
-    include: { teacher: true, subject: true },
+    include: { teacher: true, headTeacher: true, subject: true },
   });
 }
 
@@ -41,7 +49,7 @@ export async function findAssignmentBySubjectClass(
         year,
       },
     },
-    include: { teacher: true, subject: true },
+    include: { teacher: true, headTeacher: true, subject: true },
   });
 }
 
@@ -52,14 +60,28 @@ export async function findTeacherAssignment(
   major: Major,
   year: AcademicYear,
 ) {
-  return prisma.subjectAssignment.findUnique({
+  return prisma.subjectAssignment.findFirst({
     where: {
-      teacherId_subjectId_major_year: {
-        teacherId,
-        subjectId,
-        major,
-        year,
-      },
+      teacherId,
+      subjectId,
+      major,
+      year,
+    },
+  });
+}
+
+export async function findHeadTeacherAssignment(
+  headTeacherId: string,
+  subjectId: string,
+  major: Major,
+  year: AcademicYear,
+) {
+  return prisma.subjectAssignment.findFirst({
+    where: {
+      headTeacherId,
+      subjectId,
+      major,
+      year,
     },
   });
 }
@@ -69,26 +91,34 @@ export async function findTeacherAssignment(
 // ---------------------------------------------------------------------------
 
 export async function createAssignment(data: {
-  teacherId: string;
+  teacherId?: string;
+  headTeacherId?: string;
   subjectId: string;
   major: Major;
   year: AcademicYear;
   canEdit?: boolean;
 }) {
   return prisma.subjectAssignment.create({
-    data,
-    include: { teacher: true, subject: true },
+    data: {
+      teacherId: data.teacherId || undefined,
+      headTeacherId: data.headTeacherId || undefined,
+      subjectId: data.subjectId,
+      major: data.major,
+      year: data.year,
+      canEdit: data.canEdit ?? true,
+    },
+    include: { teacher: true, headTeacher: true, subject: true },
   });
 }
 
 export async function updateAssignment(
   id: string,
-  data: { canEdit?: boolean; teacherId?: string },
+  data: { canEdit?: boolean; teacherId?: string; headTeacherId?: string },
 ) {
   return prisma.subjectAssignment.update({
     where: { id },
     data,
-    include: { teacher: true, subject: true },
+    include: { teacher: true, headTeacher: true, subject: true },
   });
 }
 

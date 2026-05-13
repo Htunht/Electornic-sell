@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useSession } from "@/lib/auth-client";
-import { teacherApi } from "@/lib/api";
+import { headTeacherApi } from "@/lib/api";
 import DashboardNav from "@/components/dashboard/DashboardNav";
 import {
   ChevronLeft,
@@ -55,7 +55,7 @@ export default function TeacherClassManagement() {
     async function loadSubject() {
       if (!subjectId) return;
       try {
-        const res = await teacherApi.getSubjects(); // Need a getSubjectById if available, otherwise filter from list
+        const res = await headTeacherApi.getSubjects(); // Need a getSubjectById if available, otherwise filter from list
         const list = Array.isArray(res.data) ? res.data : [];
         const found = list.find((s: any) => String(s.id) === subjectId);
         if (found) setSubject(found);
@@ -73,7 +73,7 @@ export default function TeacherClassManagement() {
       if (!subject || !session) return;
       setLoading(true);
       try {
-        const res = await teacherApi.getStudents({
+        const res = await headTeacherApi.getStudents({
           year: subject.year,
           search: search.trim() || undefined,
           page,
@@ -117,7 +117,7 @@ export default function TeacherClassManagement() {
 
     setSavingRows(prev => ({ ...prev, [studentId]: true }));
     try {
-      await teacherApi.saveStudentMarks({
+      await headTeacherApi.saveStudentMarks({
         studentId,
         subjectId: subjectId!,
         marks,
@@ -141,7 +141,7 @@ export default function TeacherClassManagement() {
         status,
         date: entryDate,
       }));
-      await teacherApi.saveBulkAttendance({
+      await headTeacherApi.saveBulkAttendance({
         subjectId: subjectId!,
         attendanceData,
       });
